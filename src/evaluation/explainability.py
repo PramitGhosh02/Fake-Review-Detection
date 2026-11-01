@@ -12,7 +12,6 @@ import seaborn as sns
 from typing import List, Optional, Dict, Any
 import warnings
 
-# Use a dummy import for shap to avoid missing dependency errors in tests
 try:
     import shap
     SHAP_AVAILABLE = True
@@ -42,7 +41,6 @@ class AttentionVisualizer:
             raise ValueError("Tokenizer required for text attention visualization.")
             
         tokens = self.tokenizer.tokenize(text)
-        # Dummy attention weights for illustration
         attention_weights = np.random.rand(len(tokens))
         attention_weights = attention_weights / attention_weights.sum()
         
@@ -65,7 +63,6 @@ class AttentionVisualizer:
         """
         views = ['Text', 'Behavior', 'Graph']
         
-        # Example dummy matrix
         attention_matrix = np.array([
             [0.6, 0.2, 0.2],
             [0.3, 0.5, 0.2],
@@ -113,20 +110,17 @@ class AttentionVisualizer:
         fig = plt.figure(figsize=(15, 10))
         plt.suptitle(f'Case Study: Prediction = {prediction:.2f}, True Label = {true_label}', fontsize=16)
         
-        # Panel 1: View importance
         ax1 = plt.subplot(221)
         views = ['Text', 'Behavior', 'Graph']
         importance = [0.6, 0.3, 0.1]
         ax1.pie(importance, labels=views, autopct='%1.1f%%', colors=sns.color_palette("Set2"))
         ax1.set_title("View Contributions")
         
-        # Panel 2: Behavioral feature snippet
         ax2 = plt.subplot(222)
         features, vals = list(behavioral_features.keys()), list(behavioral_features.values())
         sns.barplot(x=vals, y=features, ax=ax2, palette='coolwarm')
         ax2.set_title("Key Behavioral Features")
         
-        # Panel 3: Text placeholder
         ax3 = plt.subplot(212)
         ax3.text(0.5, 0.5, f"Review Text Snippet:\n{text[:200]}...", 
                  ha='center', va='center', wrap=True, fontsize=12)

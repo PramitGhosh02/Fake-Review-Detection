@@ -19,11 +19,9 @@ class BehavioralFeatureExtractor:
         """
         self.df = df.copy()
         
-        # Ensure date is datetime
         if 'date' in self.df.columns:
             self.df['date'] = pd.to_datetime(self.df['date'])
             
-        # Ensure text is string and calculate length
         if 'text' in self.df.columns:
             self.df['text_str'] = self.df['text'].astype(str)
             self.df['word_count'] = self.df['text_str'].apply(lambda x: len(x.split()))
@@ -33,12 +31,10 @@ class BehavioralFeatureExtractor:
             
     def extract_user_features(self) -> pd.DataFrame:
         """Extracts per-user features."""
-        # Product average ratings for rating deviation calculation
         prod_avg = self.df.groupby('product_id')['rating'].mean().rename('prod_avg_rating')
         df_merged = self.df.merge(prod_avg, on='product_id', how='left')
         df_merged['rating_dev'] = abs(df_merged['rating'] - df_merged['prod_avg_rating'])
         
-        # Group by user
         user_group = df_merged.groupby('user_id')
         
         user_features = pd.DataFrame(index=user_group.groups.keys())
@@ -60,7 +56,6 @@ class BehavioralFeatureExtractor:
             last_review = user_group['date'].max()
             user_features['first_last_span_days'] = (last_review - first_review).dt.days
             
-            # Max reviews per day
             daily_counts = df_merged.groupby(['user_id', df_merged['date'].dt.date]).size()
             user_features['max_reviews_per_day'] = daily_counts.groupby('user_id').max()
         else:
@@ -85,10 +80,8 @@ class BehavioralFeatureExtractor:
         prod_features['product_avg_rating'] = prod_group['rating'].mean()
         prod_features['product_rating_std'] = prod_group['rating'].std().fillna(0)
         
-        # Entropy of ratings
         prod_features['product_rating_entropy'] = prod_group['rating'].apply(self._entropy)
         
-        # Extreme ratio (1 or 5 star)
         prod_features['product_extreme_ratio'] = prod_group['rating'].apply(
             lambda x: sum((x == 1) | (x == 5)) / len(x)
         )
@@ -104,7 +97,6 @@ class BehavioralFeatureExtractor:
         merged_df = merged_df.merge(user_features, on='user_id', how='left')
         merged_df = merged_df.merge(prod_features, on='product_id', how='left')
         
-        # Drop temporary columns used for computation if any
         cols_to_drop = ['text_str', 'word_count', 'capital_ratio']
         merged_df.drop(columns=[c for c in cols_to_drop if c in merged_df.columns], inplace=True)
         

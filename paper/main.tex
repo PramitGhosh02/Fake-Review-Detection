@@ -1,248 +1,337 @@
-\documentclass[conference]{IEEEtran}
-\usepackage{cite}
-\usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext,newtxmath}
+\usepackage{setspace}
 \usepackage{graphicx}
-\usepackage{textcomp}
-\usepackage{xcolor}
 \usepackage{booktabs}
-\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{cite}
+\usepackage[hidelinks]{hyperref}
 \usepackage{url}
-\usepackage{hyperref}
+
+\setstretch{1.2}
+\setlength{\parindent}{0.3in}
+\setlength{\parskip}{0.25em}
+\setlist{nosep,leftmargin=*}
+\renewcommand{\arraystretch}{1.18}
+\renewcommand{\bibname}{REFERENCES}
 
 \begin{document}
 
-\title{FakeGuard: A Multi-View Deep Learning Framework with Explainable Attention for Fake Review Detection}
+\begin{titlepage}
+\centering
+\vspace*{1.2in}
+{\Large \textbf{[UNIVERSITY NAME]}\par}
+\vspace{0.25in}
+{\large [DEPARTMENT / SCHOOL]\par}
+\vspace{1.0in}
+{\LARGE \textbf{DEEP LEARNING-BASED FRAMEWORK FOR FAKE REVIEW DETECTION}\par}
+\vspace{0.4in}
+{\Large Project Research Report\par}
+\vspace{1.0in}
+\begin{tabular}{rl}
+Submitted by: & [STUDENT NAME] \\
+University ID: & [ROLL / ENROLLMENT NUMBER] \\
+Programme: & [DEGREE / BRANCH / SEMESTER] \\
+Project guide: & [GUIDE NAME] \\
+Academic year: & [ACADEMIC YEAR] \\
+\end{tabular}
+\vfill
+{\large [CITY]\par}
+\end{titlepage}
 
-\author{\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address or ORCID}
-\and
-\IEEEauthorblockN{2\textsuperscript{nd} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address or ORCID}
-}
+\pagenumbering{roman}
+\chapter*{ABSTRACT}
+\addcontentsline{toc}{chapter}{ABSTRACT}
 
-\maketitle
+This report evaluates the evidence available for a proposed deep learning framework for fake review detection and records reproducible text-only experiments. The repository's earlier results were produced from synthetic development data, and the implemented training path does not currently evaluate its advertised text, behavioral, and graph views together. To obtain valid results with the data available, the study uses the local 1,600-row deceptive-opinion hotel corpus, whose labels represent deceptive versus truthful reviews rather than platform-confirmed fraud or machine authorship. Four exact normalized-text duplicates were removed, leaving 1,596 reviews from 20 hotels. Word TF--IDF logistic regression, linear SVM, multinomial Naive Bayes, and an MLP were compared with a BiLSTM trained from scratch. Five-fold stratified review-level evaluation and five-fold hotel-disjoint evaluation were used. In hotel-disjoint evaluation, the strongest macro-F1 was 0.8859 for linear SVM (standard deviation 0.0131 across folds); the corrected BiLSTM achieved 0.7526 (0.0367). These findings support text-based discrimination within this controlled corpus, but do not establish performance on real platform fraud, other domains, or the proposed multimodal system. The report documents the dataset and code audit, research method, results, software and hardware requirements, cost basis, limitations, and the work still required to validate behavioral and graph fusion.
 
-\begin{abstract}
-Online review platforms play a critical role in consumer decision-making, leading to a pervasive issue of opinion spam and fake reviews. Existing detection methods typically focus on single modalities, such as text or reviewer networks, and often lack transparency in their predictions, limiting their real-world applicability. In this paper, we propose FakeGuard, a multi-view deep learning framework that integrates semantic, behavioral, and relational signals to accurately detect fake reviews. We introduce a novel cross-attention fusion mechanism that dynamically weighs the importance of different modalities, providing state-of-the-art detection performance while offering built-in explainability. Our approach leverages RoBERTa for semantic representations, a Multilayer Perceptron for behavioral features, and a Graph Attention Network (GAT) for reviewer-product interactions. Extensive experiments on the YelpCHI dataset demonstrate that FakeGuard outperforms existing baselines, achieving an accuracy of [XX.X\%] and an AUC of [XX.X\%]. Furthermore, the explainability module highlights critical words, suspicious user behaviors, and network clusters contributing to the predictions, thereby enhancing user trust and interpretability.
-\end{abstract}
+\clearpage
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
 
-\begin{IEEEkeywords}
-Fake Review Detection, Deep Learning, Graph Neural Networks, Attention Mechanism, Explainable AI
-\end{IEEEkeywords}
+\chapter{INTRODUCTION}
 
 \section{Introduction}
-\label{sec:intro}
 
-The exponential growth of e-commerce and online service platforms has made online reviews a cornerstone of modern consumer behavior. However, this reliance has incentivized the proliferation of fake reviews, also known as deceptive opinion spam \cite{ott2011finding, jindal2008opinion}. Malicious actors generate fabricated reviews to artificially inflate or maliciously degrade product ratings, undermining platform integrity and causing significant economic losses. 
+Online reviews influence decisions about products, hotels, and services. Opinion spam includes reviews created to mislead readers or manipulate perceived product quality \cite{jindal2008}. Detection is difficult because the available label may describe different things: a review deliberately written to deceive, text generated by a machine, or a platform's decision to filter a review. These labels are related but not interchangeable.
 
-Traditional approaches to fake review detection primarily rely on text-based features and supervised learning classifiers \cite{mukherjee2013what}. With the advent of deep learning, methods utilizing Convolutional Neural Networks (CNNs) \cite{kim2014convolutional, ren2017neural} and Transformers \cite{devlin2018bert} have significantly improved text-based detection. Concurrently, behavioral and network-based methods \cite{kipf2016semi, velickovic2017graph, dou2020enhancing} have emerged to model reviewer-product interactions, capturing the complex dynamics of deceptive behaviors.
+This project is named FakeGuard in the codebase and proposes a framework that combines review text, behavioral information, and reviewer--review--product relations. The research question for the completed stage is narrower: how well can text-only models distinguish deceptive and truthful reviews when test hotels are held out? This question can be answered with the local hotel corpus. The local data do not contain verified reviewer histories or a graph, so they cannot test the full three-view proposal.
 
-Despite these advancements, existing approaches face several critical limitations. First, most models process data from a single modality—either text or graphs—failing to capture the multifaceted nature of deceptive behaviors. Second, the few multi-view approaches lack adaptive fusion mechanisms, treating all features equally regardless of the context. Finally, complex deep learning models are often perceived as ``black boxes,'' lacking the transparency required for real-world deployment where moderators need to understand why a review is flagged.
+\section{Problem statement}
 
-To address these challenges, we propose \textbf{FakeGuard}, an explainable multi-view deep learning framework for fake review detection. Our contributions are summarized as follows:
-\begin{enumerate}
-    \item We introduce a multi-view architecture that synergistically combines textual semantics, behavioral metadata, and relational graph signals into a unified framework.
-    \item We propose a novel cross-attention fusion mechanism that adaptively aggregates information across different modalities, significantly improving detection accuracy.
-    \item We integrate built-in explainability using attention visualization and SHAP \cite{lundberg2017a}, providing interpretable insights at the token, feature, and view levels.
-\end{enumerate}
+The present implementation and evidence do not yet substantiate the claim that a deep learning model using text, behavior, and graph context detects fake reviews. Earlier saved metrics use synthetic development examples whose labels influence generated ratings and text lengths. The current training entry point does not supply graph tensors, and dataset adapters create label-correlated synthetic behavioral values. The evaluation and visualization scripts also include random or hard-coded outputs. Consequently, those artifacts cannot support claims about real-review detection, the graph view, model explanations, or superiority over prior methods.
 
-The remainder of this paper is organized as follows: Section \ref{sec:related} reviews related work. Section \ref{sec:method} details the proposed framework. Experimental setup and results are presented in Sections \ref{sec:exp} and \ref{sec:results}, respectively. Section \ref{sec:explain} discusses the explainability analysis, and Section \ref{sec:conclusion} concludes the paper.
+The research problem addressed in this report is therefore: \textit{Can text-only classifiers distinguish deceptive from truthful hotel reviews in the available controlled corpus when evaluation is performed on hotels excluded from training, and how does a small BiLSTM compare with classical word-based baselines?} The report also identifies what data and experiments are needed before the full multi-view question can be answered.
 
+\section{Scope of research}
 
-\section{Related Work}
-\label{sec:related}
+The completed experiment uses \texttt{data/datasets/deceptive-opinion.csv}. It evaluates review text only, with deceptive reviews coded as the positive class. The experiment removes exact normalized-text duplicates and compares four TF--IDF classifiers and one BiLSTM under two five-fold protocols: stratified review-level folds and hotel-disjoint folds.
 
-\subsection{Text-Based Approaches}
-Early studies on deceptive opinion spam focused on linguistic features, n-grams, and sentiment cues \cite{ott2011finding, mukherjee2013what}. Deep learning advanced the state-of-the-art by employing CNNs \cite{kim2014convolutional} and LSTMs \cite{hochreiter1997long} to learn semantic representations. More recently, large pre-trained language models like BERT \cite{devlin2018bert} and RoBERTa \cite{liu2019roberta} have dominated text-based fake review detection by capturing deep contextual relationships \cite{sun2019how}.
+The work does not evaluate machine-generated versus human-authored text, Yelp filtered/recommended labels, reviewer behavior, graph relationships, images, or deployment. The local 40,432-row CG/OR file and the 2,483-row flagged/unflagged file are not used because their source and label construction are not documented in this repository. There is no pretrained Transformer experiment, no final independent test set, no multi-seed study, and no trained FakeGuard fusion checkpoint. The report treats these as limitations and follow-up work.
 
-\subsection{Behavioral and Metadata Approaches}
-Beyond text, researchers have leveraged behavioral patterns such as posting frequency, rating deviation, and review burstiness \cite{jindal2008opinion, mukherjee2013spotting}. These metadata features are highly robust to text-level manipulation and have been integrated into various machine learning pipelines \cite{rayana2015collective}.
+\section{Research hypothesis}
 
-\subsection{Graph-Based Approaches}
-The reviewer-product ecosystem naturally forms a bipartite or heterogeneous graph. Graph Convolutional Networks (GCNs) \cite{kipf2016semi} and Graph Attention Networks (GATs) \cite{velickovic2017graph} have been successfully applied to detect spammers \cite{hamilton2017inductive, wang2020graph}. For instance, GCAN \cite{li2020gcan} and other graph-based models \cite{dou2020enhancing} model homophily and relation strength to identify coordinated spam campaigns.
+The following hypotheses define the current study. They were not preregistered.
 
-\subsection{Hybrid and Multi-View Approaches}
-Combining multiple data sources yields better performance. Several works have explored combining text and graphs \cite{zhang2018dri, wang2011review, zhao2022multi}, but they often rely on simple concatenation or non-adaptive gating mechanisms. Our framework introduces a sophisticated cross-attention module to overcome these limitations.
-
-\subsection{Explainability in Fake Review Detection}
-Trust in AI systems requires interpretability. While post-hoc methods like LIME \cite{ribeiro2016why} and SHAP \cite{lundberg2017a} provide feature importance, built-in attention mechanisms \cite{vaswani2017attention} offer architectural transparency. FakeGuard combines both to provide comprehensive explanations \cite{selvaraju2017grad, arrieta2020explainable}.
-
-
-\section{Proposed Framework}
-\label{sec:method}
-
-\subsection{Problem Formulation}
-Given an online review $r$, let $t$ denote its textual content, $b \in \mathbb{R}^{d_b}$ its behavioral metadata features, and $G = (V, E)$ the heterogeneous graph where $V$ includes reviewer and product nodes, and $E$ represents review interactions. The task is to learn a mapping function $f: (t, b, G) \rightarrow y$, where $y \in \{0, 1\}$ represents the label (0 for genuine, 1 for fake).
-
-\subsection{Text Encoder}
-We utilize a pre-trained RoBERTa model to encode the semantic information of the review text. The review text $t$ is tokenized into a sequence of subwords. The final hidden state of the \texttt{[CLS]} token is extracted as the sentence-level representation:
-\begin{equation}
-    \mathbf{h}_{t} = \text{RoBERTa}(t)_{\text{[CLS]}}
-\end{equation}
-where $\mathbf{h}_{t} \in \mathbb{R}^{d_t}$. 
-
-\subsection{Behavioral Feature Encoder}
-The behavioral features $b$ encompass reviewer statistics (e.g., total reviews, positive ratio) and product statistics (e.g., rating variance). These features are passed through a Multi-Layer Perceptron (MLP) with Batch Normalization:
-\begin{equation}
-    \mathbf{h}_{b} = \text{ReLU}(\mathbf{W}_2 \text{BatchNorm}(\text{ReLU}(\mathbf{W}_1 b + \mathbf{c}_1)) + \mathbf{c}_2)
-\end{equation}
-where $\mathbf{h}_{b} \in \mathbb{R}^{d_b'}$, and $\mathbf{W}_*, \mathbf{c}_*$ are trainable parameters.
-
-\subsection{Graph Attention Network}
-We construct a heterogeneous graph $G$ connecting reviewers, reviews, and products. A Multi-head Graph Attention Network (GAT) \cite{velickovic2017graph} is employed to propagate node features. The attention coefficient $\alpha_{ij}$ between node $i$ and its neighbor $j$ is computed as:
-\begin{equation}
-    \alpha_{ij} = \frac{\exp\left(\text{LeakyReLU}(\mathbf{a}^T [\mathbf{W}_g \mathbf{h}_i || \mathbf{W}_g \mathbf{h}_j])\right)}{\sum_{k \in \mathcal{N}(i)} \exp\left(\text{LeakyReLU}(\mathbf{a}^T [\mathbf{W}_g \mathbf{h}_i || \mathbf{W}_g \mathbf{h}_k])\right)}
-\end{equation}
-The aggregated graph embedding for the review node is denoted as $\mathbf{h}_{g} \in \mathbb{R}^{d_g}$.
-
-\subsection{Cross-Attention Fusion Module}
-To dynamically aggregate information from the text, behavioral, and graph views, we project all embeddings into a common semantic space of dimension $D$. Let $\mathbf{E} = [\mathbf{h}_t', \mathbf{h}_b', \mathbf{h}_g'] \in \mathbb{R}^{3 \times D}$.
-We apply a multi-head cross-attention mechanism \cite{vaswani2017attention} to learn the view importance:
-\begin{equation}
-    \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\left(\frac{\mathbf{Q} \mathbf{K}^T}{\sqrt{d_k}}\right) \mathbf{V}
-\end{equation}
-Here, the queries $\mathbf{Q}$, keys $\mathbf{K}$, and values $\mathbf{V}$ are linear projections of $\mathbf{E}$. The final fused representation $\mathbf{h}_{final}$ is the weighted sum of the updated view representations. The attention weights $\mathbf{A} = \text{softmax}(\dots)$ serve as the view-level explanation.
-
-\subsection{Training Objective}
-Since fake review datasets are typically highly imbalanced, we optimize the model using Focal Loss \cite{lin2017focal}:
-\begin{equation}
-    \mathcal{L} = - \alpha (1 - p_t)^\gamma \log(p_t)
-\end{equation}
-where $p_t$ is the predicted probability for the target class, $\gamma \geq 0$ is the focusing parameter, and $\alpha$ is the balancing factor.
-
-\begin{figure}[htbp]
-\centerline{\includegraphics[width=\columnwidth]{fig1_architecture_placeholder.png}}
-\caption{Architecture of the FakeGuard Framework (Placeholder).}
-\label{fig:arch}
-\end{figure}
-
-
-\section{Experimental Setup}
-\label{sec:exp}
-
-\subsection{Datasets}
-We evaluate FakeGuard on the widely adopted YelpCHI dataset \cite{rayana2015collective}, which contains reviews for restaurants and hotels in Chicago. The dataset is highly imbalanced, with roughly 13\% fake reviews. Table \ref{tab:dataset} summarizes the statistics.
-
-\begin{table}[htbp]
-\caption{Dataset Statistics}
-\begin{center}
-\begin{tabular}{lc}
-\toprule
-\textbf{Metric} & \textbf{YelpCHI} \\
-\midrule
-Total Reviews & 67,395 \\
-Genuine Reviews & 58,395 \\
-Fake Reviews & 9,000 \\
-Total Reviewers & 38,063 \\
-Total Products & 201 \\
-\bottomrule
-\end{tabular}
-\label{tab:dataset}
-\end{center}
-\end{table}
-
-\subsection{Baselines}
-We compare our approach against several strong baselines:
 \begin{itemize}
-    \item \textbf{Text-only}: LR+TF-IDF, BiLSTM \cite{hochreiter1997long}, RoBERTa \cite{liu2019roberta}.
-    \item \textbf{Graph-only}: GCN \cite{kipf2016semi}, GAT \cite{velickovic2017graph}.
-    \item \textbf{Multi-view}: GCAN \cite{li2020gcan}, Early-Fusion MLP.
+    \item \textbf{H1:} At least one text-only model will achieve macro-F1 above chance in hotel-disjoint folds on this corpus. This hypothesis is supported by the observed results, but only for this dataset and split design.
+    \item \textbf{H2:} The trained BiLSTM will outperform the strongest TF--IDF linear baseline on hotel-disjoint folds. This hypothesis is not supported in the current experiment: the linear SVM has higher mean macro-F1.
+    \item \textbf{H3:} Fusing verified behavioral and graph evidence with text will improve detection over text alone. This hypothesis is not tested because compatible, verified behavior and graph inputs are unavailable in the local corpus.
 \end{itemize}
 
-\subsection{Evaluation Metrics}
-We report Accuracy, Precision, Recall, F1-Score, and AUC-ROC to comprehensively assess model performance on the imbalanced dataset.
+\section{Objectives}
 
-\subsection{Implementation Details}
-The model is implemented in PyTorch and trained on an NVIDIA RTX 3090 GPU. We use the AdamW optimizer with a learning rate of $2 \times 10^{-5}$ for RoBERTa and $1 \times 10^{-3}$ for other modules. Batch size is set to 32, and dropout is applied at a rate of 0.3.
+The objectives of this project stage are to:
 
+\begin{enumerate}
+    \item inspect the local datasets, model code, evaluation scripts, and earlier result files for validity;
+    \item run a reproducible text-only comparison on a documented deceptive-review corpus;
+    \item assess performance both with ordinary stratified folds and with hotels held out by group;
+    \item distinguish observed findings from proposed but untested components;
+    \item specify data, software, hardware, and evaluation requirements for completing the full framework.
+\end{enumerate}
 
-\section{Results and Discussion}
-\label{sec:results}
+The first four objectives are completed in this report. Integration and evaluation of the full multi-view model remain open objectives.
 
-\subsection{Main Results}
-As shown in Table \ref{tab:results}, FakeGuard outperforms all baseline models. It achieves an F1-score of [XX.X\%] and an AUC of [XX.X\%]. Compared to the strongest baseline, GCAN, our model shows a relative improvement of [X.X\%] in F1-score. The superiority of FakeGuard demonstrates the effectiveness of integrating behavioral and graph signals with deep semantic embeddings.
+\section{Organization of the report}
+
+Chapter 1 defines the question and scope. Chapter 2 reviews foundational deceptive-review research, network-based methods, recent machine-generated-review work, and the project-specific gap. Chapter 3 lists the software and hardware platform, work breakdown, functional and non-functional requirements, and cost basis. Chapter 4 describes the proposed architecture and the experiment actually performed. Chapter 5 reports the measured results and validity findings. Chapter 6 gives the conclusions and future work. References are listed in IEEE style.
+
+\chapter{LITERATURE REVIEW}
+
+\section{Background}
+
+Jindal and Liu established early review-spam analysis using review, reviewer, and product information \cite{jindal2008}. Ott et al. introduced a controlled corpus of positive hotel reviews in which deceptive reviews were elicited through crowdsourcing and truthful reviews were collected from online reviews \cite{ott2011}. The later negative-review study extended this work to negative polarity \cite{ott2013}. The local file has 1,600 rows across 20 hotels and, before deduplication, 400 observations in each positive/negative by truthful/deceptive group. Its deceptive/truthful labels are not labels for machine authorship or platform enforcement decisions. The corpus is text-focused and does not supply the user histories and review graph required for this project's behavioral and relational views.
+
+Network and metadata methods predate this project. Rayana and Akoglu's SPEAGLE combines review metadata such as text, timestamps, and ratings with review-network relations \cite{rayana2015}. Its Yelp data use filtered versus recommended labels; these are platform-derived proxy labels, not independently verified ground truth. Li et al. describe GAS, a graph-convolutional spam-review system deployed at Xianyu, combining heterogeneous and homogeneous graph context \cite{li2019gas}. Thus, combining modalities or adding a graph layer is not by itself a new research contribution. A defensible contribution needs a precise method and a fair experiment that measures whether fusion adds value.
+
+Deep language models provide additional text encoders. BERT is a pretrained bidirectional Transformer that can be fine-tuned for classification \cite{devlin2019}. However, strong results on a controlled corpus do not by themselves establish transfer to current platform fraud or new text generators. Liyanage et al. evaluated language-model-generated hotel reviews using the Ott corpus as a seed \cite{liyanage2024}. Gambetti and Han released AiGen-FoodReview, a multimodal collection of 20,144 restaurant review--image pairs containing authentic and machine-generated examples \cite{gambetti2024}. The construction and labels differ across these datasets; reported scores should not be directly compared as if they measured the same task.
+
+\section{Summary of literature review and research gap}
+
+The literature establishes several relevant points. First, text, reviewer behavior, product information, and network structure have all been used for review-spam detection. Second, datasets use different label semantics and collection procedures. Third, recent work has expanded the problem to machine-generated review text and review-image pairs. Fourth, attention weights alone do not guarantee faithful explanations of a model's predictions \cite{jain2019}.
+
+The specific gap in this project is evidential and implementation-level: the proposed three-view model has not been evaluated with valid, real inputs for every view. The repository's available controlled corpus supports text-only experiments but does not contain reviewer histories or graph edges. The current adapter-created behavioral values and disconnected graph path cannot establish a benefit from fusion. The research contribution completed here is therefore a data/code validity audit and a leakage-aware text-only study, not a claim of a novel or validated multi-view detector. The broader fusion hypothesis remains open pending suitable data and implementation.
+
+\chapter{SOFTWARE REQUIREMENTS SPECIFICATION}
+
+\section{Software Tool Platform/Tools/Framework used}
+
+The experiment was run in the local Windows environment using Python 3.12.10, scikit-learn 1.9.0, and PyTorch 2.15.0.dev20260823+cu130. The TF--IDF classifiers were run through scikit-learn. The BiLSTM was implemented in PyTorch and trained on the NVIDIA GPU reported by the runtime. The execution metadata records the dataset SHA-256, software versions, split protocols, and model parameters.
+
+The codebase also contains proposed BERT and graph/fusion modules, but the completed experiment did not use a pretrained language model or the full FakeGuard training runner. A development version of PyTorch was present in the environment; reproducing the same run should record and pin the actual library build and CUDA runtime.
+
+\section{Hardware tools}
+
+The recorded machine was Windows 11 on an AMD64 system with 15.2 GiB of reported RAM and an NVIDIA GeForce RTX 5060 Laptop GPU. The BiLSTM run selected CUDA. The scikit-learn experiments were run as CPU jobs. The exact CPU model was not captured, and no controlled timing or memory benchmark was performed. These specifications describe the observed experimental environment, not a minimum hardware requirement for future users.
+
+\section{Work Breakdown Structure}
+
+\begin{longtable}{p{0.08\textwidth}p{0.54\textwidth}p{0.25\textwidth}}
+\caption{Work breakdown and current status}\label{tab:wbs}\\
+\toprule
+\textbf{WBS} & \textbf{Work package} & \textbf{Status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{WBS} & \textbf{Work package} & \textbf{Status} \\
+\midrule
+\endhead
+1.0 & Audit local datasets, labels, training code, evaluation, and existing figures & Completed \\
+1.1 & Verify source and label boundaries for the controlled hotel-review corpus & Completed; source attribution checked against 2011 and 2013 papers \\
+1.2 & Deduplicate exact normalized review text and record data hash & Completed; 4 duplicates removed \\
+1.3 & Run five-fold TF--IDF baselines under two split protocols & Completed \\
+1.4 & Train and evaluate a text-only BiLSTM under the same protocols & Completed \\
+1.5 & Integrate genuine behavioral and graph data into training & Pending verified data \\
+1.6 & Train Transformer and full fusion ablations & Pending \\
+1.7 & Validate domain/generator transfer, calibration, and explanation faithfulness & Pending \\
+1.8 & Prepare this report and record limitations & Completed \\
+\bottomrule
+\end{longtable}
+
+\section{Functional Requirements}
+
+The requirements below distinguish the text-only experimental pipeline from the proposed complete product.
+
+\begin{longtable}{p{0.10\textwidth}p{0.58\textwidth}p{0.20\textwidth}}
+\caption{Functional requirements and status}\label{tab:functional}\\
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Status} \\
+\midrule
+\endhead
+FR-1 & Load review text, label, and hotel grouping from a documented input file & Met for the local hotel corpus \\
+FR-2 & Detect and remove exact normalized-text duplicates before splitting & Met \\
+FR-3 & Fit text vocabulary/features within each training fold & Met; TF--IDF and BiLSTM vocabulary are fold-local \\
+FR-4 & Train text-only baseline and neural classifiers & Met for the reported models \\
+FR-5 & Report accuracy, macro-F1, deceptive-class precision/recall/F1, ROC-AUC, and AP & Met; fold-level results are saved \\
+FR-6 & Use behavior fields with verified provenance and prediction-time availability & Not met; local adapter values are synthetic \\
+FR-7 & Construct time-valid reviewer/review/product graph inputs and train the graph view & Not met; no such inputs are used by the training runner \\
+FR-8 & Fuse all valid views and compare against single-view and simple-fusion models & Not met \\
+FR-9 & Save per-example predictions and a trained checkpoint for independent review & Not met in the current experiment artifacts \\
+\bottomrule
+\end{longtable}
+
+\section{Non Functional Requirements}
+
+\begin{itemize}
+    \item \textbf{Reproducibility:} Record data version/hash, software versions, fixed split procedures, model settings, and metric definitions. This study records these items, but has one five-fold run per protocol and does not provide seed-based uncertainty.
+    \item \textbf{Leakage control:} Deduplicate before splitting; fit vocabulary and TF--IDF only on training data; keep hotels disjoint in the grouped protocol. The current experiment meets these requirements for text.
+    \item \textbf{Label validity:} Treat deceptive/truthful, generated/original, and platform-filtered/recommended as separate target definitions.
+    \item \textbf{Robustness:} Future evaluation must include appropriate unseen hotels/domains, time periods, users, and generators where the data support those splits.
+    \item \textbf{Interpretability:} Present attention or feature attributions only as diagnostics unless faithfulness and stability are independently measured.
+    \item \textbf{Privacy and responsible use:} Do not infer or penalize individual reviewers from this controlled corpus. A practical system would require human review, false-positive analysis, and platform-specific authorization.
+\end{itemize}
+
+\section{Project Cost Estimation}
+
+The additional software and compute purchases for the experiments in this report were ₹0: the work used existing local files, open-source Python libraries, and an already available computer. This is an incremental project cost, not a total ownership-cost estimate. The cost of the existing computer, electricity, internet access, university overhead, and any dataset licensing fees was not measured or established by the repository. No paid cloud compute was used for the reported experiments.
+
+\chapter{METHODOLOGY}
+
+\section{System Architecture}
+
+The intended FakeGuard architecture has three inputs: review text, valid behavioral metadata, and a graph built from verified reviewer, review, and product identifiers. A text encoder, behavioral multilayer perceptron, and graph attention encoder would produce view embeddings \cite{velickovic2018}. A fusion layer and classifier would produce a dataset-specific score. Prior work already combines review metadata and relations, so the evaluation must test the incremental value of this project's defined fusion method rather than claim novelty from having multiple inputs \cite{rayana2015,li2019gas}.
+
+\begin{center}
+\fbox{\parbox{0.91\textwidth}{\centering
+\textbf{Proposed full system (not evaluated)}\\[0.3em]
+Review text $\rightarrow$ text encoder \quad
+Verified history $\rightarrow$ behavior encoder \quad
+Verified relations $\rightarrow$ graph encoder\\[0.3em]
+$\hspace{2em}\searrow\qquad\downarrow\qquad\swarrow$\\[0.3em]
+View fusion $\rightarrow$ classifier $\rightarrow$ dataset-specific prediction
+}}
+\end{center}
+
+For this study, only the text path was available. The comparison pipeline was:
+
+\begin{center}
+\fbox{\parbox{0.91\textwidth}{\centering
+Review text $\rightarrow$ exact-text deduplication $\rightarrow$ fold-specific text processing\\[0.3em]
+$\rightarrow$ TF--IDF classifiers and a separately trained BiLSTM\\[0.3em]
+$\rightarrow$ five-fold evaluation at review level and at hotel-group level
+}}
+\end{center}
+
+The local code contains a graph attention layer, but the main training entry point does not construct or pass graph tensors; the model therefore does not learn a graph representation in those runs. The fusion module applies multi-head self-attention to the projected view sequence, following the general attention mechanism used in Transformer architectures \cite{vaswani2017}. This is self-attention over views and does not by itself establish a novel cross-attention method. The saved attention visualizations are not used as evidence.
+
+\section{Module Description}
+
+\begin{enumerate}
+    \item \textbf{Data loading and validation:} Read review text, deceptive/truthful label, and hotel identifier. Normalize whitespace and case for exact duplicate detection; preserve original review text for model input.
+    \item \textbf{TF--IDF baseline module:} Within each fold, fit word-level TF--IDF with unigrams and bigrams, minimum document frequency 2, maximum 10,000 features, and sublinear term frequency. Train logistic regression and linear SVM (both $C=1$, balanced class weights), multinomial Naive Bayes ($\alpha=0.5$), and a one-hidden-layer MLP (32 hidden units, $\alpha=10^{-4}$, batch size 64, at most 100 iterations with early stopping).
+    \item \textbf{BiLSTM module:} Tokenize text using a fixed word pattern and truncate at 200 tokens; build vocabulary from the training portion only; use randomly initialized 100-dimensional embeddings, one bidirectional LSTM layer with 64 hidden units per direction and packed sequences to ignore padding \cite{hochreiter1997}, dropout 0.5, and a single-logit binary classifier. Train with binary cross-entropy with logits and Adam; apply sigmoid when calculating probabilities. Use an inner 15\% stratified validation split for early stopping, with at most 20 epochs and patience 3.
+    \item \textbf{Evaluation module:} Compute metrics on each held-out fold. The random protocol allows hotel overlap. The grouped protocol uses GroupKFold with five folds so a hotel's reviews do not occur in both train and test in a fold.
+    \item \textbf{Future view modules:} A Transformer text encoder, behavior MLP, graph encoder, and fusion component remain part of the proposed system, but require valid inputs, integrated training, and controlled ablations before their performance can be reported.
+\end{enumerate}
+
+\section{Dataset and Preprocessing}
+
+The input was the local \texttt{deceptive-opinion.csv}. The file contains 1,600 rows, 20 hotel identifiers, 800 truthful and 800 deceptive labels, and 400 rows in each polarity-by-label group. Its structure is consistent with the combined positive and negative hotel-review corpus described across the 2011 and 2013 Ott studies \cite{ott2011,ott2013}; the local file's precise release provenance was not independently verified against a downloaded archive. In the published corpus construction, truthful reviews were collected from review platforms and deceptive reviews were elicited from Mechanical Turk contributors. A classifier may therefore learn collection-source or writing-context differences along with deception cues. The raw file's SHA-256 is recorded in \texttt{results/ott\_experiments/run\_metadata.json} and \texttt{bilstm\_run\_metadata.json}.
+
+The experiment normalized text by case-folding, collapsing whitespace, and trimming. Four exact normalized-text duplicates were removed before partitioning, leaving 1,596 rows: 800 deceptive and 796 truthful. No near-duplicate detection was performed. No rating, source, user, timestamp, product interaction, behavioral statistic, or graph feature was supplied to any reported model.
+
+The experiment does not use the local 40,432-row CG/OR file, the 2,483-row flagged/unflagged file, or the 2,000-row synthetic development set for the reported performance tables. The first two have unresolved provenance or label semantics in this repository. The synthetic set is unsuitable for performance claims because its data-generation rules tie labels to ratings and text length.
+
+\section{Experimental Design and Evaluation Metrics}
+
+Two protocols were run for five folds each:
+
+\begin{itemize}
+    \item \textbf{Stratified review-level five-fold:} StratifiedKFold with shuffle and random state 42. Hotels may appear in both the training and test portions. This is a conventional within-corpus reference.
+    \item \textbf{Hotel-disjoint five-fold:} GroupKFold with hotel as the group. No hotel appears in both training and test for a fold. This tests generalization to unseen hotels within the same collected corpus, not generalization to another platform or time period.
+\end{itemize}
+
+TF--IDF and the BiLSTM vocabulary were fit within the training folds. For the BiLSTM, 15\% of each training fold was held out for early stopping; the outer test fold was not used for model selection. The decision threshold was 0.5 for the BiLSTM and the model's standard decision rule for scikit-learn classifiers. No hyperparameter search or threshold tuning on the test folds was performed.
+
+For each fold, the study records accuracy, macro-F1, deceptive-class precision, deceptive-class recall, deceptive-class F1, ROC-AUC, and average precision (AP). Here, the deceptive class is the positive label in this corpus; it does not mean machine-authored or platform-confirmed fraud. Average precision is reported as AP, rather than treating it as an unspecified area under a precision-recall curve. Tables show the mean and sample standard deviation across five fold-level values. Fold standard deviation is descriptive; it is not a confidence interval and the folds are not treated as independent repeated experiments. One seeded run per protocol was performed.
+
+\chapter{RESULTS AND DISCUSSION}
+
+\section{Summary of results and discussion}
 
 \begin{table}[htbp]
-\caption{Performance Comparison with Baselines}
-\begin{center}
-\begin{tabular}{lcccc}
+\centering
+\caption{Stratified review-level five-fold results (mean $\pm$ standard deviation)}
+\label{tab:random-results}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrr}
 \toprule
-\textbf{Model} & \textbf{Accuracy} & \textbf{F1-Score} & \textbf{AUC} \\
+\textbf{Model} & \textbf{Accuracy} & \textbf{Macro-F1} & \textbf{Deceptive P} & \textbf{Deceptive R} & \textbf{Deceptive F1} & \textbf{ROC-AUC} & \textbf{AP} \\
 \midrule
-LR + TF-IDF & [XX.X\%] & [XX.X\%] & [XX.X\%] \\
-BiLSTM      & [XX.X\%] & [XX.X\%] & [XX.X\%] \\
-RoBERTa     & [XX.X\%] & [XX.X\%] & [XX.X\%] \\
-GAT         & [XX.X\%] & [XX.X\%] & [XX.X\%] \\
-GCAN        & [XX.X\%] & [XX.X\%] & [XX.X\%] \\
-\midrule
-\textbf{FakeGuard (Ours)} & \textbf{[XX.X\%]} & \textbf{[XX.X\%]} & \textbf{[XX.X\%]} \\
+Logistic regression & $0.8891\pm0.0064$ & $0.8891\pm0.0065$ & $0.8903\pm0.0145$ & $0.8888\pm0.0231$ & $0.8892\pm0.0077$ & $0.9574\pm0.0033$ & $0.9601\pm0.0044$ \\
+Linear SVM & $0.8997\pm0.0086$ & $0.8997\pm0.0086$ & $0.8994\pm0.0182$ & $0.9013\pm0.0120$ & $0.9002\pm0.0078$ & $0.9608\pm0.0059$ & $0.9624\pm0.0073$ \\
+Multinomial Naive Bayes & $0.8904\pm0.0099$ & $0.8901\pm0.0100$ & $0.8582\pm0.0154$ & $0.9363\pm0.0112$ & $0.8954\pm0.0088$ & $0.9600\pm0.0050$ & $0.9614\pm0.0045$ \\
+TF--IDF MLP & $0.8810\pm0.0183$ & $0.8809\pm0.0183$ & $0.8862\pm0.0300$ & $0.8763\pm0.0323$ & $0.8806\pm0.0182$ & $0.9503\pm0.0176$ & $0.9519\pm0.0189$ \\
+BiLSTM & $0.8020\pm0.0155$ & $0.8019\pm0.0154$ & $0.8100\pm0.0307$ & $0.7925\pm0.0281$ & $0.8005\pm0.0140$ & $0.8721\pm0.0147$ & $0.8719\pm0.0299$ \\
 \bottomrule
-\end{tabular}
-\label{tab:results}
-\end{center}
+\end{tabular}}
 \end{table}
-
-\subsection{Ablation Study}
-To analyze the contribution of each view, we conducted an ablation study (Table \ref{tab:ablation}). Removing the graph view (w/o Graph) drops performance significantly, indicating the crucial role of reviewer network structures. Removing the cross-attention fusion (replaced by simple concatenation) also degrades results, validating our design choice.
 
 \begin{table}[htbp]
-\caption{Ablation Study Results}
-\begin{center}
-\begin{tabular}{lcc}
+\centering
+\caption{Hotel-disjoint five-fold results (mean $\pm$ standard deviation)}
+\label{tab:hotel-results}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrr}
 \toprule
-\textbf{Configuration} & \textbf{F1-Score} & \textbf{AUC} \\
+\textbf{Model} & \textbf{Accuracy} & \textbf{Macro-F1} & \textbf{Deceptive P} & \textbf{Deceptive R} & \textbf{Deceptive F1} & \textbf{ROC-AUC} & \textbf{AP} \\
 \midrule
-FakeGuard (Full) & \textbf{[XX.X\%]} & \textbf{[XX.X\%]} \\
-w/o Text View & [XX.X\%] & [XX.X\%] \\
-w/o Behavioral View & [XX.X\%] & [XX.X\%] \\
-w/o Graph View & [XX.X\%] & [XX.X\%] \\
-w/o Cross-Attention & [XX.X\%] & [XX.X\%] \\
+Logistic regression & $0.8834\pm0.0229$ & $0.8833\pm0.0230$ & $0.9030\pm0.0147$ & $0.8600\pm0.0443$ & $0.8805\pm0.0255$ & $0.9500\pm0.0148$ & $0.9530\pm0.0134$ \\
+Linear SVM & $0.8860\pm0.0131$ & $0.8859\pm0.0131$ & $0.9049\pm0.0182$ & $0.8638\pm0.0259$ & $0.8835\pm0.0139$ & $0.9530\pm0.0139$ & $0.9551\pm0.0131$ \\
+Multinomial Naive Bayes & $0.8853\pm0.0087$ & $0.8852\pm0.0087$ & $0.8741\pm0.0234$ & $0.9025\pm0.0327$ & $0.8874\pm0.0093$ & $0.9513\pm0.0108$ & $0.9511\pm0.0127$ \\
+TF--IDF MLP & $0.8778\pm0.0184$ & $0.8774\pm0.0185$ & $0.9139\pm0.0311$ & $0.8375\pm0.0628$ & $0.8722\pm0.0229$ & $0.9508\pm0.0114$ & $0.9506\pm0.0133$ \\
+BiLSTM & $0.7543\pm0.0339$ & $0.7526\pm0.0367$ & $0.7839\pm0.0153$ & $0.7063\pm0.1026$ & $0.7392\pm0.0564$ & $0.8401\pm0.0240$ & $0.8372\pm0.0339$ \\
 \bottomrule
-\end{tabular}
-\label{tab:ablation}
-\end{center}
+\end{tabular}}
 \end{table}
 
+The linear SVM had the highest mean macro-F1 in hotel-disjoint evaluation (0.8859, standard deviation 0.0131). Its mean deceptive-class precision was 0.9049 and recall was 0.8638. Logistic regression and Naive Bayes had similar macro-F1 values, while the TF--IDF MLP was slightly lower. The corrected BiLSTM reached macro-F1 0.7526 and deceptive-class recall 0.7063 in this setup. Thus, H1 is supported for this dataset and protocol, while H2 is not supported by this model/configuration. This comparison does not show that linear methods are generally better than deep learning; the BiLSTM used randomly initialized word embeddings, one configuration, and one run per fold. The collection-source contrast in the corpus is also a possible shortcut, so the scores should be read as performance on this benchmark's labels, not evidence of detecting fraudulent intent in naturally occurring reviews.
 
-\section{Explainability Analysis}
-\label{sec:explain}
+The stratified review-level scores are higher for several models, but hotel overlap is allowed in that protocol. The hotel-disjoint results are the more relevant of the two for assessing whether text cues carry beyond reviews from hotels seen during training. Even these results remain within the same small, controlled corpus and its collection process. They do not prove transfer to commercial platforms, other hotel datasets, machine-generated reviews, or real-world fraud.
 
-\subsection{Cross-View Attention Analysis}
-By analyzing the attention weights $\mathbf{A}$ in the cross-attention module, we observe that the model dynamically shifts focus based on the context. For reviews crafted by sophisticated spammers (where text appears natural), the model assigns up to [XX\%] weight to the behavioral and graph views.
+The repository's earlier saved baseline results are separate from these tables. They were generated on 2,000 synthetic development records, where label-dependent rating and text-length rules make the data unsuitable for estimating real-review performance. The existing adapter also creates synthetic behavior features for datasets without reviewer histories, the graph view is not connected to the training entry point, and some evaluation/figure scripts produce random or hard-coded values. The current results avoid those features and scripts; they do not repair or validate the complete FakeGuard implementation.
 
-\subsection{Token-Level Attention}
-The self-attention heads of the RoBERTa module highlight specific linguistic cues. Fake reviews often exhibit hyperbolic sentiment and lack spatial details. Figure \ref{fig:attn} (placeholder) illustrates that tokens like "best ever," "amazing," and excessive punctuation receive high attention scores in deceptive texts.
+No significance tests, confidence intervals, external test set, probability calibration analysis, or error-label audit were performed. Per-example predictions and trained checkpoints were not saved in the experiment outputs. The saved artifacts include fold metrics, split manifests, run metadata, and scripts; these are sufficient to reproduce the procedures in the present environment, but they do not provide a frozen model for independent inference.
 
-\begin{figure}[htbp]
-\centerline{\includegraphics[width=\columnwidth]{fig4_heatmap_placeholder.png}}
-\caption{Token-Level Attention Heatmap (Placeholder).}
-\label{fig:attn}
-\end{figure}
+\chapter{CONCLUSION AND FUTURE SCOPE}
 
-\subsection{Behavioral Feature Importance (SHAP)}
-We apply SHAP \cite{lundberg2017a} to the MLP module to interpret behavioral features. The analysis reveals that ``Maximum Number of Reviews per Day'' and ``Rating Deviation'' are the top contributors to the fake review class.
+\section{Conclusion}
 
-\begin{figure}[htbp]
-\centerline{\includegraphics[width=\columnwidth]{fig5_shap_placeholder.png}}
-\caption{SHAP Summary Plot for Behavioral Features (Placeholder).}
-\label{fig:shap}
-\end{figure}
+The research audit found that the earlier synthetic-data results and proposed architecture did not establish that the complete FakeGuard system detects real fake reviews. The project did, however, support valid text-only experiments on the local controlled deceptive-opinion corpus after exact duplicate removal and leakage-aware evaluation. Under hotel-disjoint five-fold validation, word TF--IDF linear models achieved mean macro-F1 near 0.88, while the tested BiLSTM achieved 0.7526. In this experimental setup, the simpler lexical baselines outperformed the randomly initialized BiLSTM.
 
+Accordingly, the narrow text-only hypothesis is supported within this corpus. The hypothesis that the current BiLSTM outperforms the strongest linear baseline is not supported. The multi-view fusion hypothesis remains untested. The results must not be presented as state-of-the-art, platform-level fraud detection, AI-generated text detection, or evidence that behavioral/graph features improve classification. More research is required to establish the proposed project's broader claims.
 
-\section{Conclusion and Future Work}
-\label{sec:conclusion}
-In this paper, we proposed FakeGuard, an explainable multi-view deep learning framework for fake review detection. By integrating text semantics, behavioral metadata, and graph interactions through a novel cross-attention mechanism, FakeGuard achieves state-of-the-art performance on the YelpCHI dataset. Furthermore, the model provides valuable multi-level explainability through attention visualization and SHAP analysis.
+\section{Future Scope}
 
-For future work, we plan to extend the framework to detect sophisticated AI-generated reviews crafted by Large Language Models (LLMs) \cite{zellers2019defending} and to optimize the graph processing module for real-time streaming data on e-commerce platforms.
+The next research stage should proceed in the following order:
 
+\begin{enumerate}
+    \item \textbf{Recover suitable data:} Obtain a licensed dataset with documented collection and label semantics, real reviewer and product identifiers, timestamps, and sufficient graph context. If Yelp filtered/recommended labels are used, report them as platform-proxy labels.
+    \item \textbf{Repair the data pipeline:} Remove label-derived synthetic behavior and invented user identifiers. Compute all aggregates using only information available at prediction time and construct graph snapshots without future test information.
+    \item \textbf{Complete deep text comparisons:} Fine-tune a pretrained Transformer such as BERT alongside the BiLSTM and TF--IDF baselines. Use held-out hotels/domains and, for generated reviews, hold out generation models.
+    \item \textbf{Test fusion fairly:} Compare text-only, behavior-only, graph-only, concatenation, score fusion, and the proposed view-attention model. Use ablations and missing-view tests to quantify what each input contributes.
+    \item \textbf{Improve evaluation:} Use a separate untouched test set, repeated seeds, confidence intervals or appropriate paired tests, threshold selection on validation data, calibration, per-class errors, and false-positive analysis.
+    \item \textbf{Validate explanations and deployment claims:} Replace hard-coded plots with outputs from saved models. Evaluate attribution faithfulness and stability, and do not treat attention weights alone as explanations \cite{jain2019}. Conduct a prospective, human-reviewed evaluation before operational use.
+\end{enumerate}
+
+\clearpage
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
 \end{document}
+

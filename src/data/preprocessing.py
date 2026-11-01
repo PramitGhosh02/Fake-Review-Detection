@@ -32,7 +32,6 @@ class TextPreprocessor:
         text = str(text)
         text = clean_html(text)
         text = remove_urls(text)
-        # Remove special characters but keep some punctuation
         text = re.sub(r'[^a-zA-Z0-9\s.,!?\'\"]', '', text)
         text = normalize_text(text)
         return text

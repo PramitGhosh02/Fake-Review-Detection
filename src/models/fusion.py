@@ -16,19 +16,15 @@ class CrossAttentionFusion(nn.Module):
         super(CrossAttentionFusion, self).__init__()
         self.projected_dim = projected_dim
         
-        # Projection layers to map all views to a shared semantic space
         self.text_proj = nn.Linear(text_dim, projected_dim)
         self.behavior_proj = nn.Linear(behavior_dim, projected_dim)
         self.graph_proj = nn.Linear(graph_dim, projected_dim)
         
-        # Multi-head attention layer for inter-view interaction
         self.attention = nn.MultiheadAttention(embed_dim=projected_dim, num_heads=num_heads, dropout=dropout, batch_first=True)
         
-        # Layer normalization and dropout for stability
         self.layer_norm = nn.LayerNorm(projected_dim)
         self.dropout = nn.Dropout(dropout)
         
-        # Final classifier MLP
         self.classifier = nn.Sequential(
             nn.Linear(projected_dim, projected_dim // 2),
             nn.ReLU(),
@@ -50,25 +46,18 @@ class CrossAttentionFusion(nn.Module):
                 - Logits for classification, shape (batch, num_classes).
                 - Attention weights for explainability, shape (batch, num_views, num_views).
         """
-        # 1. Project all embeddings to the shared dimension
-        text_proj = self.text_proj(text_emb)       # (batch, projected_dim)
-        behav_proj = self.behavior_proj(behavior_emb) # (batch, projected_dim)
-        graph_proj = self.graph_proj(graph_emb)       # (batch, projected_dim)
+        text_proj = self.text_proj(text_emb)
+        behav_proj = self.behavior_proj(behavior_emb)
+        graph_proj = self.graph_proj(graph_emb)
         
-        # 2. Stack as sequence: [text, behavior, graph] -> (batch, 3, projected_dim)
         stacked_views = torch.stack([text_proj, behav_proj, graph_proj], dim=1)
         
-        # 3. Apply multi-head self-attention across the 3 views
-        # Returns: attn_output (batch, 3, projected_dim), attn_weights (batch, 3, 3)
         attn_output, attn_weights = self.attention(stacked_views, stacked_views, stacked_views)
         
-        # Residual connection and layer norm
         fused_views = self.layer_norm(stacked_views + self.dropout(attn_output))
         
-        # 4. Aggregate views (mean pooling across the sequence dimension)
-        aggregated = fused_views.mean(dim=1)  # (batch, projected_dim)
+        aggregated = fused_views.mean(dim=1)
         
-        # 5. Classification
         logits = self.classifier(aggregated)
         
         return logits, attn_weights

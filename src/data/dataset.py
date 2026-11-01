@@ -78,7 +78,6 @@ def create_dataloaders(dataset: Dataset, batch_size: int = 32, train_ratio: floa
     
     return train_loader, val_loader, test_loader
 
-# Ensure torch_geometric is installed before trying to use its features
 if torch_geometric is not None:
     class GraphFakeReviewDataset(Dataset):
         """
@@ -94,7 +93,6 @@ if torch_geometric is not None:
 
         def _build_graph(self) -> Data:
             """Builds a homogeneous graph representing the reviewer-product bipartite relationships."""
-            # Placeholder for edge index definition
             edge_index = torch.empty((2, 0), dtype=torch.long)
             
             return Data(x=self.behavioral_features, edge_index=edge_index, y=self.labels)
@@ -114,26 +112,21 @@ if torch_geometric is not None:
         """
         data = HeteroData()
         
-        # Nodes
         user_ids = df['user_id'].unique()
         product_ids = df['product_id'].unique()
         
         user_mapping = {uid: i for i, uid in enumerate(user_ids)}
         product_mapping = {pid: i for i, pid in enumerate(product_ids)}
         
-        # Assign features 
         data['user'].x = torch.zeros((len(user_ids), 1)) 
         data['product'].x = torch.zeros((len(product_ids), 1))
         data['review'].x = review_features
         data['review'].y = labels
         
-        # Edges
-        # User -> Review
         user_src = [user_mapping[uid] for uid in df['user_id']]
         review_dst = list(range(len(df)))
         data['user', 'writes', 'review'].edge_index = torch.tensor([user_src, review_dst], dtype=torch.long)
         
-        # Review -> Product
         review_src = list(range(len(df)))
         product_dst = [product_mapping[pid] for pid in df['product_id']]
         data['review', 'reviews', 'product'].edge_index = torch.tensor([review_src, product_dst], dtype=torch.long)

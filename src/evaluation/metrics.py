@@ -16,7 +16,6 @@ import seaborn as sns
 from typing import Dict, Optional, List
 from pathlib import Path
 
-# Configure matplotlib for publication-quality plots
 plt.rcParams.update({
     'font.size': 12,
     'axes.titlesize': 14,
@@ -129,8 +128,8 @@ class ModelComparator:
     """Compares multiple models' performance for paper tables."""
     
     def __init__(self):
-        self.results = {}  # model_name -> metrics dict
-        self.rocs = {}     # model_name -> (fpr, tpr, auc)
+        self.results = {}
+        self.rocs = {}
     
     def add_model(self, name: str, y_true: np.ndarray, y_pred: np.ndarray, y_prob: Optional[np.ndarray] = None):
         """Add a model's results."""
@@ -151,7 +150,6 @@ class ModelComparator:
         """Bar chart comparing models across metrics."""
         df = self.comparison_table()
         
-        # Filter available metrics
         available_metrics = [m for m in metrics if m in df.columns]
         if not available_metrics:
             raise ValueError("None of the specified metrics are available.")

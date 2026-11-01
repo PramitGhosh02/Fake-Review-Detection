@@ -1,9 +1,16 @@
+# ==== Step 1: Install this file first ====
+# pip install -r requirements.txt
+#
+# ==== Step 2: Then install PyG extensions separately ====
+# pip install torch-scatter torch-sparse -f https://data.pyg.org/whl/torch-2.13.0+cpu.html
+# (Replace 'cpu' with 'cu121' or 'cu124' if you have CUDA)
+
 torch>=2.0.0
 torchvision>=0.15.0
 transformers>=4.30.0
 torch-geometric>=2.3.0
-torch-scatter
-torch-sparse
+# NOTE: torch-scatter and torch-sparse must be installed AFTER torch.
+# See Step 2 instructions above.
 scikit-learn>=1.3.0
 pandas>=2.0.0
 numpy>=1.24.0

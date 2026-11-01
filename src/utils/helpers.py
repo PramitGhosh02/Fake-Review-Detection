@@ -31,11 +31,9 @@ def set_seed(seed: int = 42) -> None:
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-    # Ensure deterministic behavior in CuDNN backend
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    # Set Python hash seed
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
@@ -59,7 +57,6 @@ def get_device(config_device: str = "auto") -> torch.device:
     else:
         try:
             device = torch.device(config_device)
-            # Verify CUDA availability if CUDA was explicitly requested
             if device.type == "cuda" and not torch.cuda.is_available():
                 logging.warning(
                     f"CUDA requested ('{config_device}') but not available. Falling back to CPU."
@@ -124,20 +121,17 @@ def setup_logging(
     logger = logging.getLogger("fakeguard")
     logger.setLevel(level)
 
-    # Avoid duplicate handlers if setup_logging is called multiple times
     if not logger.handlers:
         formatter = logging.Formatter(
             fmt="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
-        # File handler (UTF-8 encoding)
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
-        # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(level)
         console_handler.setFormatter(formatter)
@@ -191,7 +185,6 @@ def save_checkpoint(
     save_path = Path(path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Unwrap DataParallel / DistributedDataParallel if present
     model_to_save = model.module if hasattr(model, "module") else model
 
     checkpoint: Dict[str, Any] = {
@@ -247,11 +240,9 @@ def load_checkpoint(
 
     checkpoint: Dict[str, Any] = torch.load(checkpoint_path, map_location=map_location)
 
-    # Extract state dict and handle possible DataParallel prefix mismatch
     state_dict = checkpoint.get("model_state_dict", checkpoint)
     model_to_load = model.module if hasattr(model, "module") else model
 
-    # Strip 'module.' prefix if model is not wrapped in DataParallel but state_dict was saved with it
     cleaned_state_dict = {}
     for k, v in state_dict.items():
         clean_key = k[7:] if k.startswith("module.") else k

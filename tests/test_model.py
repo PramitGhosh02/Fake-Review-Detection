@@ -3,10 +3,8 @@ import torch
 import sys
 from pathlib import Path
 
-# Setup path so modules can be imported
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# Mock classes for unit testing to run successfully without the actual modules
 class TextEncoder(torch.nn.Module):
     def forward(self, x): return torch.zeros(x.shape[0], 768)
 

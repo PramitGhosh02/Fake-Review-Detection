@@ -1,26 +1,34 @@
-# FakeGuard: A Multi-View Deep Learning Framework with Explainable Attention for Fake Review Detection
+# FakeGuard: A Proposed Multi-View Deep Learning Framework for Fake Review Detection
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg)](https://pytorch.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ---
 
-## 📌 Overview
+##  Overview
 
-**FakeGuard** is an end-to-end multi-view deep learning framework engineered for robust, explainable fake review detection across e-commerce and online review platforms (such as Yelp and Amazon). Online reviews heavily influence consumer decisions and platform trust, yet malicious actors frequently deploy deceptive reviews or organized spam campaigns to manipulate ratings.
+**FakeGuard** is a research prototype for studying text, behavioral, and relational signals in review fraud detection. It has not been validated as a robust real-world detector. The saved classical baseline results use a synthetic development dataset, and there are no valid test results for the complete three-view model.
 
-Traditional detection approaches typically rely exclusively on linguistic content or isolated behavioral heuristics. In contrast, **FakeGuard** synergistically unifies three complementary dimensions:
+Prior work already combines review metadata and network structure. FakeGuard's proposed design studies three complementary views:
 1. **Linguistic View (Semantic Content):** Contextual embeddings from pre-trained language models (BERT/RoBERTa) that capture syntactic nuances, sentiment inconsistencies, and deceptive writing patterns.
 2. **Behavioral View (Metadata & Temporal Dynamics):** Handcrafted and learned statistical representations capturing user rating deviations, review bursts, account velocity, and activity distributions.
-3. **Relational View (Graph Structure):** Graph Neural Networks (GNNs via PyTorch Geometric) operating over heterogeneous reviewer-product-review interaction graphs to detect collusion rings and suspicious structural cliques.
+3. **Proposed Relational View (Graph Structure):** A graph model over reviewer-review-product relations, if verified entity IDs and time-respecting edges are available. Current training does not construct these inputs.
 
-These multi-modal representations are fused via an **Explainable Multi-Head Cross-Attention Fusion Mechanism**, providing interpretable attribution weights for platform administrators and consumers alike.
+The proposed design fuses these views with multi-head self-attention over a three-token view sequence. The attention matrix is a diagnostic, not a verified explanation. Current training does not supply graph inputs, so the graph embedding is zero in those runs.
+
+### Research status
+
+- The saved baseline table is reproducible on 2,000 synthetic records (315 labeled fake), with a stratified 80/20 split. It is a development check, not evidence of performance on real reviews.
+- Separate text-only experiments have now been run on the local deceptive-opinion hotel corpus after exact-text deduplication. The best hotel-disjoint mean macro-F1 was 0.8859 for TF-IDF + linear SVM; a randomly initialized BiLSTM reached 0.7526. These are controlled-corpus results, not validation of the full multi-view model or performance on platform fraud. Reproduce them with `python scripts/run_ott_experiments.py` and `python scripts/run_ott_bilstm.py`.
+- The Ott corpus and the machine-generated review corpus have no reviewer history or review graph. The repository's adapters synthesize label-correlated behavioral features for these datasets; those features are invalid for model evaluation.
+- The local `new_data_test.csv` contains 2,483 rows, but its sampling and source are undocumented. It is not verified as the canonical YelpChi dataset.
+- The evaluation and figure scripts include random or hard-coded values. Do not use their outputs as experimental results.
+- See [the research audit](RESEARCH_AUDIT.md) for verified findings, sources, and the next experiment plan.
 
 ---
 
-## 🏗️ Architecture Overview
+##  Architecture Overview
 
 ```
                       ┌─────────────────────────────────────────┐
@@ -45,9 +53,9 @@ These multi-modal representations are fused via an **Explainable Multi-Head Cros
                                   │
                                   ▼
                 ┌───────────────────────────────────┐
-                │  Multi-Head Cross-Attention       │
+                │  Multi-Head Self-Attention        │
                 │        Fusion Layer               │
-                │    (Explainable Modality Weights) │
+                │    (View Interaction Weights)     │
                 └─────────────────┬─────────────────┘
                                   │
                                   ▼
@@ -57,34 +65,35 @@ These multi-modal representations are fused via an **Explainable Multi-Head Cros
                                   │
                                   ▼
                 ┌───────────────────────────────────┐
-                │   Output: Genuine vs. Fake Review │
-                │   + Multi-View Attention Heatmap  │
+                │   Output: Dataset-Specific Label  │
+                │   + Attention Diagnostic Matrix   │
                 └───────────────────────────────────┘
 ```
 
 ### Key Modules:
 - **Text Encoder (`src/models/text_encoder.py`)**: Fine-tuned Transformer backbone extracting dense sentence representations.
 - **Behavior Encoder (`src/models/behavior_encoder.py`)**: Multi-layer feed-forward network projecting numeric metadata into a shared latent space.
-- **Graph Encoder (`src/models/graph_encoder.py`)**: Graph Attention Networks (GAT) learning node representations over heterogeneous reviewer-product bipartite graphs.
-- **Explainable Fusion (`src/models/fusion.py`)**: Multi-head cross-attention mechanism dynamically weighting modality importance per sample.
-- **Explainability Engine (`src/evaluation/explainability.py`)**: SHAP and Captum integrations for token-level, feature-level, and graph-subgraph attributions.
+- **Graph Encoder (`src/models/graph_encoder.py`)**: Homogeneous GAT layers. Graph construction and graph inputs are not connected to the main training entry point.
+- **Fusion (`src/models/fusion.py`)**: Multi-head self-attention over the three projected view embeddings.
+- **Explainability utilities (`src/evaluation/explainability.py`)**: A SHAP wrapper is present, but attention plots in this module are partly random or hard-coded and no valid explanations are reported.
 
 ---
 
-## 📂 Project Structure
+##  Project Structure
 
 ```
 PBL_Sem5/
 ├── configs/
 │   └── config.yaml               # Master experimental configuration
 ├── data/
-│   ├── raw/                      # Raw datasets (YelpChi, YelpZip, Amazon)
-│   └── processed/                # Preprocessed splits, graphs, and features
+│   ├── raw/                      # Synthetic development dataset
+│   ├── datasets/                 # Local review corpora; provenance varies
+│   └── processed/                # Derived features and adapted datasets
 ├── notebooks/                    # Interactive analysis and prototyping
 ├── results/
-│   ├── checkpoints/              # Serialized model weights
-│   ├── logs/                     # TensorBoard / execution logs
-│   └── figures/                  # ROC curves, confusion matrices, SHAP plots
+│   ├── checkpoints/              # Optional training output; no validated checkpoint is included
+│   ├── logs/                     # Optional training output
+│   └── figures/                  # Development plots; verify provenance before use
 ├── src/
 │   ├── __init__.py
 │   ├── data/                     # Data loading, tokenization, graph builders
@@ -107,12 +116,12 @@ PBL_Sem5/
 
 ---
 
-## ⚡ Installation
+##  Installation
 
-### 1. Clone the repository & navigate to project directory:
+### 1. Navigate to the project directory:
 ```bash
-git clone https://github.com/fakeguard/fakeguard.git
-cd PBL_Sem5
+git clone https://github.com/PramitGhosh02/Fake-Review-Detection.git
+cd Fake-Review-Detection
 ```
 
 ### 2. Create and activate a Python virtual environment:
@@ -142,10 +151,10 @@ pip install -e .
 
 ---
 
-## 🚀 Usage
+##  Usage
 
 ### 1. Configuration
-All hyperparameters, dataset paths, model architectures, and training settings are centralized in [`configs/config.yaml`](configs/config.yaml).
+The configuration file contains defaults for the prototype. It does not establish that the listed dataset or hardware was used in a completed experiment.
 
 ```yaml
 data:
@@ -162,61 +171,62 @@ model:
 ```
 
 ### 2. Training
-Run training using the standard configuration:
+For a development smoke run on the local data (not a research result):
 ```bash
-python -m src.training.train --config configs/config.yaml
+python scripts/train.py --debug --model-type text_only
 ```
 
-### 3. Evaluation
-Evaluate a trained model checkpoint on the test partition:
+The current `scripts/evaluate.py` generates random labels and scores; it does not load the checkpoint for evaluation. Do not use it for research reporting. The explainability helpers also need correction and validation before their plots are interpreted.
+
+### Reproducing the research experiments
+
+Raw review datasets are not stored in this repository. Review `data/datasets/README.md` for label definitions and limitations, then obtain the permitted dataset files and place them in `data/datasets/`. The experiment scripts expect `deceptive-opinion.csv` for the Ott hotel corpus and `fake reviews dataset.csv` for the CG/OR corpus. The downloader can retrieve the former from a public mirror; verify the provenance and terms of any downloaded corpus before use.
+
 ```bash
-python -m src.evaluation.evaluate --config configs/config.yaml --checkpoint results/checkpoints/best_model.pt
+python data/download_datasets.py
+python scripts/run_ott_experiments.py
+python scripts/run_ott_bilstm.py
+python scripts/run_salminen40k_experiments.py
+python scripts/run_salminen40k_mlp.py
+python scripts/tune_grouped_svm.py
 ```
 
-### 4. Explainability & Analysis
-Generate SHAP values, attention weight distributions, and modality contributions:
-```bash
-python -m src.evaluation.explain --checkpoint results/checkpoints/best_model.pt --sample-idx 0
-```
+The scripts save fold-level metrics, summaries, and run metadata under `results/`. Row-level split manifests and raw datasets are excluded from version control; the manifests can be regenerated from the local corpora.
 
 ---
 
-## 📊 Supported Datasets
+##  Local datasets (not included in the repository)
 
-| Dataset | Domain | Reviews | Spammers / Fake Ratio | Graph Relations |
-| :--- | :--- | :--- | :--- | :--- |
-| **YelpChi** | Restaurant & Hotel | 67,395 | ~13.2% | User-Product-Review (UPR) |
-| **YelpZip** | Restaurant & Hotel | 608,598 | ~13.1% | User-Product-Review (UPR) |
-| **Amazon** | Musical Instruments / Electronics | Variable | Variable | Co-review / Co-purchasing |
+| Expected local file | Rows / labels in the audited local copy | Correct use and limitation |
+| :--- | :--- | :--- |
+| `data/datasets/deceptive-opinion.csv` | 1,600; 800 truthful and 800 deceptive | Controlled, text-only deception benchmark; no behavior or graph. |
+| `data/datasets/fake reviews dataset.csv` | 40,432; 20,216 CG and 20,216 OR | Source and label construction are undocumented here. CG/OR means generation source, not necessarily deceptive intent. |
+| `data/datasets/new_data_test.csv` | 2,483; 1,271 flagged and 1,212 unflagged | Provenance and sampling are undocumented; not verified as full YelpChi. |
+| `data/raw/dataset.csv` | 2,000 synthetic; 315 fake | Development only; labels influence rating and text-length generation. |
+
+These counts describe local files used during the audit; the CSV files are not committed. Do not treat download mirrors as authoritative sources without checking their provenance and redistribution terms.
+
+The canonical YelpChi counts commonly reported from Rayana and Akoglu are external dataset statistics. This repository does not contain that complete 67,395-review dataset. Its filtered/recommended labels are proxy labels, not independently verified fake/genuine truth.
 
 ---
 
-## 🧪 Evaluation Metrics
+##  Evaluation Metrics
 
-FakeGuard evaluates classification performance across standard fraud detection metrics:
+The project intends to report standard fraud detection metrics after the evaluation pipeline is corrected:
 - **Accuracy & Balanced Accuracy**
 - **Precision, Recall, F1-Score (Macro & Binary)**
 - **Area Under ROC Curve (AUC-ROC)**
-- **Area Under Precision-Recall Curve (AUC-PR)**
+- **Average Precision (AP)** (the current code's `auc_pr` field)
 - **Inference Latency & Parameter Efficiency**
 
 ---
 
-## 📖 Citation
+##  Citation
 
-If you use FakeGuard in your research, please cite:
-
-```bibtex
-@article{fakeguard2026,
-  title={FakeGuard: A Multi-View Deep Learning Framework with Explainable Attention for Fake Review Detection},
-  author={FakeGuard Research Team},
-  journal={arXiv preprint},
-  year={2026}
-}
-```
+There is no published FakeGuard paper citation. Cite the original data and methods you use, and clearly describe dataset-specific label meanings and splits.
 
 ---
 
-## 📄 License
+##  License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+No `LICENSE` file is present in this repository, so the project's redistribution terms are not specified here.

@@ -33,33 +33,27 @@ class Trainer:
         self.config = config
         self.device = device
         
-        # Setup optimizer (AdamW with weight decay)
         lr = self.config.get('learning_rate', 2e-5)
         weight_decay = self.config.get('weight_decay', 0.01)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         
-        # Setup scheduler (linear warmup + cosine annealing)
         epochs = self.config.get('num_epochs', 10)
         num_training_steps = epochs * len(self.train_loader)
         num_warmup_steps = int(num_training_steps * self.config.get('warmup_ratio', 0.1))
         self.scheduler = self._get_scheduler(self.optimizer, num_training_steps, num_warmup_steps)
         
-        # Setup loss function
         from src.training.losses import get_loss_function
         loss_name = self.config.get('loss_function', 'cross_entropy')
         self.criterion = get_loss_function(loss_name).to(self.device)
         
-        # Setup AMP scaler
         self.use_amp = self.config.get('use_amp', True)
         self.scaler = GradScaler(enabled=self.use_amp)
         self.max_grad_norm = self.config.get('max_grad_norm', 1.0)
         
-        # Setup TensorBoard writer & Checkpoint dir
         self.save_dir = Path(self.config.get('save_dir', 'checkpoints'))
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(log_dir=str(self.save_dir / 'logs'))
         
-        # Setup early stopping state
         self.patience = self.config.get('early_stopping_patience', 3)
         self.best_val_f1 = 0.0
         self.early_stopping_counter = 0
@@ -73,7 +67,6 @@ class Trainer:
         
         pbar = tqdm(self.train_loader, desc=f"Epoch {epoch} [Train]")
         for batch in pbar:
-            # Move data to device
             input_ids = batch['input_ids'].to(self.device)
             attention_mask = batch['attention_mask'].to(self.device)
             features = batch.get('features', None)
@@ -86,9 +79,7 @@ class Trainer:
             
             self.optimizer.zero_grad()
             
-            # Forward pass with Mixed Precision
             with autocast(enabled=self.use_amp):
-                # Build kwargs matching FakeGuard.forward() signature
                 kwargs = {'input_ids': input_ids, 'attention_mask': attention_mask}
                 if features is not None:
                     kwargs['behavioral_features'] = features
@@ -97,28 +88,23 @@ class Trainer:
                     
                 outputs = self.model(**kwargs)
                 
-                # Handle both dict output (FakeGuard) and raw tensor output (baselines)
                 if isinstance(outputs, dict):
                     logits = outputs['logits']
                 else:
                     logits = outputs
                 loss = self.criterion(logits, targets)
                 
-            # Backward pass
             self.scaler.scale(loss).backward()
             
-            # Gradient clipping
             self.scaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
             
-            # Optimizer & Scheduler step
             self.scaler.step(self.optimizer)
             self.scaler.update()
             self.scheduler.step()
             
             total_loss += loss.item()
             
-            # Accumulate metrics
             preds = torch.argmax(logits, dim=1).cpu().numpy()
             all_preds.extend(preds)
             all_targets.extend(targets.cpu().numpy())
@@ -160,7 +146,6 @@ class Trainer:
                     
                 outputs = self.model(**kwargs)
                 
-                # Handle both dict output (FakeGuard) and raw tensor output (baselines)
                 if isinstance(outputs, dict):
                     logits = outputs['logits']
                 else:
@@ -200,7 +185,6 @@ class Trainer:
             train_metrics = self.train_epoch(epoch)
             val_metrics = self.validate(epoch)
             
-            # Log to TensorBoard
             self.writer.add_scalar('Loss/Train', train_metrics['loss'], epoch)
             self.writer.add_scalar('Loss/Val', val_metrics['loss'], epoch)
             self.writer.add_scalar('F1/Train', train_metrics['f1'], epoch)
@@ -213,7 +197,6 @@ class Trainer:
             
             training_history.append({'train': train_metrics, 'val': val_metrics})
             
-            # Check early stopping
             is_best = val_metrics['f1'] > self.best_val_f1
             if is_best:
                 self.best_val_f1 = val_metrics['f1']
@@ -227,7 +210,6 @@ class Trainer:
                     self._save_checkpoint(epoch, val_metrics, is_best=False)
                     break
                     
-            # Save checkpoint
             self._save_checkpoint(epoch, val_metrics, is_best=is_best)
             
         self.writer.close()

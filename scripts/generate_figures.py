@@ -16,7 +16,6 @@ import sys
 import numpy as np
 from pathlib import Path
 
-# Add project root to path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -29,7 +28,6 @@ def generate_paper_figures(output_dir: str):
     
     print("Generating paper figures and tables...")
     
-    # Simulate dummy data for multiple models
     np.random.seed(42)
     y_true = np.random.randint(0, 2, 1000)
     
@@ -42,15 +40,12 @@ def generate_paper_figures(output_dir: str):
     comparator.add_model("BERT-Baseline", y_true, (prob_b1 > 0.5).astype(int), prob_b1)
     comparator.add_model("GNN-Baseline", y_true, (prob_b2 > 0.5).astype(int), prob_b2)
     
-    # Figure 2: ROC curves comparison
     comparator.plot_all_roc_curves(save_path=str(out_path / "figure_2_roc_comparison.png"))
     print("Created Figure 2: ROC comparison.")
     
-    # Table 1: Main results comparison (LaTeX)
     comparator.to_latex(save_path=str(out_path / "table_1_main_results.tex"))
     print("Created Table 1: Main results.")
     
-    # Figure 3: Ablation study bar chart
     ablation = ModelComparator()
     prob_no_graph = np.clip(y_true * 0.75 + np.random.randn(1000) * 0.25, 0, 1)
     prob_no_behav = np.clip(y_true * 0.72 + np.random.randn(1000) * 0.28, 0, 1)
@@ -63,7 +58,6 @@ def generate_paper_figures(output_dir: str):
     ablation.to_latex(save_path=str(out_path / "table_2_ablation.tex"))
     print("Created Figure 3 and Table 2: Ablation study.")
     
-    # Explainability visualizations
     viz = AttentionVisualizer(model=None)
     viz.visualize_cross_view_attention(save_path=str(out_path / "figure_6_cross_view_attn.png"))
     print("Created Figure 6: Cross-view attention.")

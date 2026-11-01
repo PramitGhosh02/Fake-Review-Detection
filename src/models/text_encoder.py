@@ -12,10 +12,8 @@ class TextEncoder(nn.Module):
     def __init__(self, model_name: str = 'bert-base-uncased', hidden_dim: int = 768, dropout: float = 0.1, fine_tune: bool = True):
         super(TextEncoder, self).__init__()
         self.hidden_dim = hidden_dim
-        # Load pre-trained model from HuggingFace
         self.transformer = AutoModel.from_pretrained(model_name)
         
-        # Freeze parameters if not fine-tuning
         if not fine_tune:
             for param in self.transformer.parameters():
                 param.requires_grad = False
@@ -34,6 +32,5 @@ class TextEncoder(nn.Module):
             torch.Tensor: [CLS] token embedding, shape (batch_size, hidden_dim).
         """
         outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
-        # Extract the [CLS] token representation (first token in sequence)
         cls_embedding = outputs.last_hidden_state[:, 0, :]
         return self.dropout(cls_embedding)

@@ -28,20 +28,6 @@ Usage:
 ================================================================================
 """
 
-# %% [markdown]
-# # FakeGuard: Traditional Machine Learning Baselines
-# 
-# This interactive notebook establishes competitive traditional machine learning baselines
-# for fake review detection across textual and behavioral views.
-# 
-# ### Baselines:
-# 1. **Logistic Regression + TF-IDF**: Linear text classifier with L2 regularization.
-# 2. **Support Vector Machine (LinearSVC) + TF-IDF**: Maximum-margin hyper-plane text classifier.
-# 3. **Naive Bayes (MultinomialNB) + TF-IDF**: Probabilistic word frequency model.
-# 4. **Random Forest + Behavioral Features**: Non-linear ensemble model on user & product behavior.
-# 5. **Combined (TF-IDF + Behavioral Features)**: Multi-view linear baseline without deep learning.
-
-# %% Imports and Setup
 import json
 import os
 import sys
@@ -54,7 +40,6 @@ import pandas as pd
 import seaborn as sns
 from scipy.sparse import hstack, issparse
 
-# Scikit-Learn Algorithms and Evaluation
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -76,30 +61,25 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 
-# Ensure project root is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Setup Matplotlib backend: Agg for CLI scripts, inline for Jupyter/VS Code Interactive
 if not hasattr(sys, 'ps1') and 'ipykernel' not in sys.modules:
     import matplotlib
     matplotlib.use('Agg')
 
-# Project Modules
 from src.data.feature_engineering import BehavioralFeatureExtractor
 from src.data.preprocessing import TextPreprocessor
 from src.evaluation.metrics import MetricsCalculator, ModelComparator
 from data.download_data import generate_sample_dataset
 
-# Output Directories
 RESULTS_DIR = PROJECT_ROOT / "results"
 FIGURES_DIR = RESULTS_DIR / "figures"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-# Publication Styling
 plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
 plt.rcParams.update({
     'font.family': 'sans-serif',
@@ -120,13 +100,6 @@ np.random.seed(RANDOM_SEED)
 print(f"Project Root: {PROJECT_ROOT}")
 print(f"Results Directory: {RESULTS_DIR}")
 
-# %% [markdown]
-# ## 1. Data Ingestion & Preprocessing
-# 
-# Load feature-engineered dataset from `data/processed/dataset_with_features.csv` or raw data.
-# If unavailable, features are automatically extracted or generated.
-
-# %% Load Data Cell
 def load_dataset_for_modeling() -> Tuple[pd.DataFrame, List[str]]:
     """
     Loads dataset and extracts text and behavioral features.
@@ -155,13 +128,11 @@ def load_dataset_for_modeling() -> Tuple[pd.DataFrame, List[str]]:
     if 'cleaned_text' not in df.columns:
         df['cleaned_text'] = df['text'].apply(preprocessor.clean_text)
         
-    # Filter numerical behavioral columns
     id_cols = {'review_id', 'user_id', 'product_id', 'label', 'text', 'cleaned_text', 'date', 'class_name'}
     behavioral_cols = [
         c for c in df.columns if c not in id_cols and pd.api.types.is_numeric_dtype(df[c])
     ]
     
-    # Impute missing values in behavioral features if any
     for col in behavioral_cols:
         if df[col].isnull().any():
             df[col] = df[col].fillna(df[col].median())
@@ -172,14 +143,6 @@ df, behavioral_features = load_dataset_for_modeling()
 print(f"Dataset Loaded: {len(df)} samples | Fake: {(df['label'] == 1).sum()} | Genuine: {(df['label'] == 0).sum()}")
 print(f"Behavioral Features ({len(behavioral_features)}): {behavioral_features}")
 
-# %% [markdown]
-# ## 2. Train / Test Split and Feature Representations
-# 
-# We perform a stratified split (80% train, 20% test) to preserve class balance.
-# Text is vectorized using TF-IDF (unigrams + bigrams), and behavioral features are standardized.
-
-# %% Feature Engineering & Splitting
-# Stratified Split
 train_df, test_df = train_test_split(
     df,
     test_size=0.20,
@@ -193,7 +156,6 @@ y_test = test_df['label'].values
 print(f"Train samples: {len(train_df)} (Fake: {(y_train==1).sum()}, Genuine: {(y_train==0).sum()})")
 print(f"Test samples:  {len(test_df)} (Fake: {(y_test==1).sum()}, Genuine: {(y_test==0).sum()})")
 
-# 1. Text Feature Representation: TF-IDF
 tfidf = TfidfVectorizer(
     max_features=5000,
     ngram_range=(1, 2),
@@ -205,12 +167,10 @@ tfidf = TfidfVectorizer(
 X_train_tfidf = tfidf.fit_transform(train_df['cleaned_text'])
 X_test_tfidf = tfidf.transform(test_df['cleaned_text'])
 
-# 2. Behavioral Feature Representation: StandardScaler
 scaler = StandardScaler()
 X_train_behav = scaler.fit_transform(train_df[behavioral_features])
 X_test_behav = scaler.transform(test_df[behavioral_features])
 
-# 3. Combined Multimodal Feature Representation: [TF-IDF || Behavioral]
 X_train_combined = hstack([X_train_tfidf, X_train_behav]).tocsr()
 X_test_combined = hstack([X_test_tfidf, X_test_behav]).tocsr()
 
@@ -218,12 +178,6 @@ print(f"TF-IDF Matrix Shape:       {X_train_tfidf.shape}")
 print(f"Behavioral Matrix Shape:   {X_train_behav.shape}")
 print(f"Combined Matrix Shape:     {X_train_combined.shape}")
 
-# %% [markdown]
-# ## 3. Training Baseline Models
-# 
-# Train all baseline algorithms with hyperparameter configurations tailored for class imbalance.
-
-# %% Model Training and Predictions
 class BaselineExperiment:
     """
     Manages training, probability prediction, and evaluation for baseline models.
@@ -248,12 +202,10 @@ class BaselineExperiment:
         self.model.fit(X_train, y_train)
         self.y_pred = self.model.predict(X_test)
         
-        # Extract probabilities for AUC calculation
         if hasattr(self.model, "predict_proba"):
             self.y_prob = self.model.predict_proba(X_test)[:, 1]
         elif hasattr(self.model, "decision_function"):
             decision = self.model.decision_function(X_test)
-            # Min-Max scale decision function to [0, 1] as approximate probability
             self.y_prob = (decision - decision.min()) / (decision.max() - decision.min() + 1e-9)
         else:
             self.y_prob = self.y_pred.astype(float)
@@ -262,16 +214,13 @@ class BaselineExperiment:
         self.metrics = calc.compute_all()
         return self
 
-# Initialize Models
 experiments: Dict[str, BaselineExperiment] = {
-    # 1. Logistic Regression + TF-IDF
     "Logistic Regression (TF-IDF)": BaselineExperiment(
         name="Logistic Regression (TF-IDF)",
         model=LogisticRegression(C=1.0, max_iter=1000, class_weight='balanced', random_state=RANDOM_SEED),
         feature_type="text"
     ),
     
-    # 2. Linear SVM + TF-IDF (Calibrated for well-behaved probabilities)
     "Linear SVM (TF-IDF)": BaselineExperiment(
         name="Linear SVM (TF-IDF)",
         model=CalibratedClassifierCV(
@@ -281,14 +230,12 @@ experiments: Dict[str, BaselineExperiment] = {
         feature_type="text"
     ),
     
-    # 3. Naive Bayes (MultinomialNB) + TF-IDF
     "Naive Bayes (TF-IDF)": BaselineExperiment(
         name="Naive Bayes (TF-IDF)",
         model=MultinomialNB(alpha=0.5),
         feature_type="text"
     ),
     
-    # 4. Random Forest + Behavioral Features
     "Random Forest (Behavioral)": BaselineExperiment(
         name="Random Forest (Behavioral)",
         model=RandomForestClassifier(
@@ -302,7 +249,6 @@ experiments: Dict[str, BaselineExperiment] = {
         feature_type="behavior"
     ),
     
-    # 5. Combined Baseline: Logistic Regression + [TF-IDF + Behavioral]
     "Combined LR (Text + Behavior)": BaselineExperiment(
         name="Combined LR (Text + Behavior)",
         model=LogisticRegression(C=1.0, max_iter=1000, class_weight='balanced', random_state=RANDOM_SEED),
@@ -310,7 +256,6 @@ experiments: Dict[str, BaselineExperiment] = {
     )
 }
 
-# Execute Training Loop
 for name, exp in experiments.items():
     if exp.feature_type == "text":
         exp.fit_and_evaluate(X_train_tfidf, y_train, X_test_tfidf, y_test)
@@ -321,12 +266,6 @@ for name, exp in experiments.items():
 
 print("\nAll baseline models trained successfully.")
 
-# %% [markdown]
-# ## 4. Classification Reports & Metrics Summary
-# 
-# Print full classification reports and build a comparison table across all models.
-
-# %% Classification Reports Cell
 print("=" * 80)
 print("                       DETAILED CLASSIFICATION REPORTS                       ")
 print("=" * 80)
@@ -335,7 +274,6 @@ for name, exp in experiments.items():
     print(f"\n--- Model: {name} ---")
     print(classification_report(y_test, exp.y_pred, target_names=['Genuine (0)', 'Fake (1)'], digits=4))
 
-# Build Summary DataFrame
 records = []
 for name, exp in experiments.items():
     row = {"Model": name, "Feature View": exp.feature_type.capitalize()}
@@ -352,7 +290,6 @@ print("                     BASELINE PERFORMANCE COMPARISON TABLE               
 print("=" * 80)
 display(results_df.round(4)) if 'display' in globals() else print(results_df.round(4).to_string())
 
-# Save Results to disk for comparison with FakeGuard Deep Learning Models
 results_csv_path = RESULTS_DIR / "baseline_results.csv"
 results_json_path = RESULTS_DIR / "baseline_results.json"
 results_tex_path = RESULTS_DIR / "baseline_results.tex"
@@ -368,12 +305,6 @@ print(f"  CSV:   {results_csv_path}")
 print(f"  JSON:  {results_json_path}")
 print(f"  LaTeX: {results_tex_path}")
 
-# %% [markdown]
-# ## 5. Side-by-Side Confusion Matrices
-# 
-# Plot confusion matrices for all baseline models in a clear multi-panel grid.
-
-# %% Confusion Matrix Plots
 num_models = len(experiments)
 cols = 3
 rows = (num_models + cols - 1) // cols
@@ -385,7 +316,6 @@ for idx, (name, exp) in enumerate(experiments.items()):
     ax = axes_flat[idx]
     cm = confusion_matrix(y_test, exp.y_pred)
     
-    # Calculate percentages for cell labels
     cm_pct = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
     annot = np.array([[f"{count:,}\n({pct:.1f}%)" for count, pct in zip(row_count, row_pct)]
                       for row_count, row_pct in zip(cm, cm_pct)])
@@ -405,7 +335,6 @@ for idx, (name, exp) in enumerate(experiments.items()):
     ax.set_ylabel('Ground Truth')
     ax.set_xlabel('Predicted Label')
 
-# Hide any empty subplots
 for idx in range(num_models, len(axes_flat)):
     fig.delaxes(axes_flat[idx])
 
@@ -418,18 +347,10 @@ fig.savefig(FIGURES_DIR / "baseline_confusion_matrices.pdf")
 print(f"Saved confusion matrices figure to: {cm_fig_path}")
 plt.show()
 
-# %% [markdown]
-# ## 6. ROC and Precision-Recall Curves Comparison
-# 
-# Compare discrimination capability across baselines via overlay ROC and PR curves.
-
-# %% ROC and PR Curves Plot
 fig, axes = plt.subplots(1, 2, figsize=(15, 6))
 
-# Plot Colors for models
 model_colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
 
-# 1. ROC Curves
 for (name, exp), color in zip(experiments.items(), model_colors):
     if exp.y_prob is not None:
         fpr, tpr, _ = roc_curve(y_test, exp.y_prob)
@@ -443,7 +364,6 @@ axes[0].set_ylabel('True Positive Rate (Recall / Sensitivity)')
 axes[0].legend(loc='lower right', frameon=True)
 axes[0].grid(True, linestyle='--', alpha=0.6)
 
-# 2. Precision-Recall Curves
 no_skill = (y_test == 1).sum() / len(y_test)
 axes[1].plot([0, 1], [no_skill, no_skill], 'k--', alpha=0.7, label=f'Baseline Chance (AP = {no_skill:.3f})')
 
@@ -468,12 +388,6 @@ fig.savefig(roc_fig_path, dpi=300)
 print(f"Saved ROC/PR curves figure to: {roc_fig_path}")
 plt.show()
 
-# %% [markdown]
-# ## 7. Performance Metrics Comparison Bar Chart
-# 
-# Side-by-side grouped bar chart comparing key metrics (Accuracy, F1-Macro, AUC-ROC, AUC-PR).
-
-# %% Metrics Bar Chart
 plot_metrics = ['accuracy', 'f1_macro', 'auc_roc', 'auc_pr']
 plot_df = results_df[plot_metrics].copy()
 plot_df.columns = ['Accuracy', 'F1-Macro', 'AUC-ROC', 'AUC-PR']
@@ -495,7 +409,6 @@ plt.ylim(0, 1.1)
 plt.legend(title='Metric', bbox_to_anchor=(1.02, 1), loc='upper left')
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 
-# Add subtle value labels
 for container in ax.containers:
     ax.bar_label(container, fmt='%.2f', padding=3, fontsize=8)
 
@@ -505,13 +418,6 @@ plt.savefig(metrics_bar_path, dpi=300)
 print(f"Saved metrics comparison bar chart to: {metrics_bar_path}")
 plt.show()
 
-# %% [markdown]
-# ## 8. Feature Importance Analysis
-# 
-# - **Random Forest**: Feature importances for behavioral predictors (MDI / Gini importance).
-# - **Logistic Regression / TF-IDF**: Top positive and negative lexical weights.
-
-# %% Random Forest Behavioral Feature Importance
 rf_exp = experiments.get("Random Forest (Behavioral)")
 if rf_exp is not None and hasattr(rf_exp.model, "feature_importances_"):
     importances = rf_exp.model.feature_importances_
@@ -536,7 +442,6 @@ if rf_exp is not None and hasattr(rf_exp.model, "feature_importances_"):
     print(f"Saved Random Forest feature importance figure to: {rf_fi_path}")
     plt.show()
 
-# %% Top TF-IDF Lexical Features for Logistic Regression
 lr_exp = experiments.get("Logistic Regression (TF-IDF)")
 if lr_exp is not None and hasattr(lr_exp.model, "coef_"):
     feature_names = np.array(tfidf.get_feature_names_out())
@@ -557,15 +462,6 @@ if lr_exp is not None and hasattr(lr_exp.model, "coef_"):
     print("=" * 60)
     print(top_lexical_df.to_string(index=False))
 
-# %% [markdown]
-# ## 9. Baseline Takeaways for FakeGuard Deep Learning Architecture
-# 
-# 1. **Text View Only (TF-IDF)**: Captures overt spam vocabulary, but struggles with subtle, deceptive reviews.
-# 2. **Behavioral View Only (Random Forest)**: Effectively detects abnormal user frequencies and rating deviations, but lacks linguistic awareness.
-# 3. **Combined Linear Model**: Boosts macro-F1 over individual single-view models, highlighting the critical value of multi-view synthesis.
-# 4. **FakeGuard Motivation**: A multi-view deep neural network with cross-attention (Text + Behavior + Graph) is expected to outperform these traditional baselines by capturing non-linear interactions and structural reviewer graph topology.
-
-# %% Execution Complete
 print("\n" + "=" * 80)
 print("           TRADITIONAL ML BASELINE BENCHMARKING COMPLETE              ")
 print(f"All figures saved to: {FIGURES_DIR}")

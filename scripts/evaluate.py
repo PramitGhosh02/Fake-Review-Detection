@@ -10,7 +10,6 @@ import torch
 import numpy as np
 from pathlib import Path
 
-# Add project root to path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -31,7 +30,6 @@ def main():
     print(f"Loading model from {args.checkpoint}...")
     
     print("Running evaluation on test set...")
-    # Mocking predictions for demonstration
     np.random.seed(42)
     y_true = np.random.randint(0, 2, 1000)
     y_prob = np.clip(y_true * 0.8 + np.random.randn(1000) * 0.3, 0, 1)

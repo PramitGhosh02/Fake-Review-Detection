@@ -10,9 +10,6 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-# Note: The real YelpCHI dataset can be requested from http://netspam.lab.uic.edu/
-# or found via various dataset repositories online.
-# Due to licensing, it usually cannot be redistributed directly.
 
 def generate_sample_dataset(output_dir: str, num_reviews: int = 2000) -> pd.DataFrame:
     """
@@ -27,14 +24,12 @@ def generate_sample_dataset(output_dir: str, num_reviews: int = 2000) -> pd.Data
     """
     os.makedirs(output_dir, exist_ok=True)
     
-    # Generate some users and products
     num_users = int(num_reviews * 0.3)
     num_products = int(num_reviews * 0.1)
     
     users = [f"user_{i}" for i in range(num_users)]
     products = [f"prod_{i}" for i in range(num_products)]
     
-    # Generate dates over a 1 year period
     start_date = datetime.datetime(2023, 1, 1)
     
     data = []
@@ -42,23 +37,18 @@ def generate_sample_dataset(output_dir: str, num_reviews: int = 2000) -> pd.Data
         user_id = random.choice(users)
         product_id = random.choice(products)
         
-        # 0 = genuine, 1 = fake
         label = 1 if random.random() < 0.15 else 0
         
-        # Fake reviews tend to be more extreme
         if label == 1:
             rating = random.choice([1.0, 5.0])
-            text_length = random.randint(10, 50)  # Shorter or less varied
+            text_length = random.randint(10, 50)
         else:
-            # Genuine reviews have more varied ratings
             rating = float(np.random.choice([1, 2, 3, 4, 5], p=[0.1, 0.1, 0.2, 0.3, 0.3]))
             text_length = random.randint(20, 150)
             
-        # Generate some dummy text
         words = ["great", "terrible", "good", "bad", "awesome", "awful", "the", "a", "is", "was", "product", "item", "service", "horrible", "fantastic"]
         text = " ".join(random.choices(words, k=text_length))
         
-        # Random date within the year
         days_offset = random.randint(0, 365)
         review_date = start_date + datetime.timedelta(days=days_offset)
         
@@ -90,7 +80,6 @@ def download_yelpchi(output_dir: str) -> None:
     generate_sample_dataset(output_dir)
 
 if __name__ == "__main__":
-    # Base path assuming this script is run from project root or inside data/
     data_dir = os.path.dirname(os.path.abspath(__file__))
     raw_dir = os.path.join(data_dir, "raw")
     

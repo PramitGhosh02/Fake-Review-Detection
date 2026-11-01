@@ -14,20 +14,6 @@ Usage:
 ================================================================================
 """
 
-# %% [markdown]
-# # FakeGuard: Exploratory Data Analysis (EDA)
-# 
-# This interactive notebook explores the fake review detection dataset for the **FakeGuard** framework.
-# Key objectives:
-# 1. **Dataset Overview & Statistics**: Summary counts, missing values, class balance.
-# 2. **Text Characteristics**: Review length (word/character count), vocabulary size, uppercase usage.
-# 3. **Rating Analysis**: Polarization (1-star / 5-star clustering) in fake vs. genuine reviews.
-# 4. **Word Cloud & Lexical Analysis**: Most salient vocabulary across classes.
-# 5. **Behavioral Feature Engineering & Statistical Comparison**: User- and product-level patterns.
-# 6. **Feature Correlations**: Multicollinearity and behavioral feature interactions.
-# 7. **Publication Figure Export**: High-resolution figures saved to `results/figures/`.
-
-# %% Imports and Global Configuration
 import os
 import sys
 import datetime
@@ -39,28 +25,23 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-# Ensure project root is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Setup Matplotlib backend: Agg for CLI scripts, inline for Jupyter/VS Code Interactive
 if not hasattr(sys, 'ps1') and 'ipykernel' not in sys.modules:
     import matplotlib
     matplotlib.use('Agg')
 
-# Import project-specific modules
 from src.data.feature_engineering import BehavioralFeatureExtractor
 from src.data.preprocessing import TextPreprocessor
 from data.download_data import generate_sample_dataset
 
-# Setup output directories
 FIGURES_DIR = PROJECT_ROOT / "results" / "figures"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-# Publication-Quality Matplotlib & Seaborn Styling
 plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
 plt.rcParams.update({
     'font.family': 'sans-serif',
@@ -82,25 +63,17 @@ plt.rcParams.update({
     'figure.autolayout': False,
 })
 
-# Custom Color Palette
 PALETTE = {
-    "Genuine": "#2b5c8f",  # Classic Navy Blue
-    "Fake": "#d95f02",     # Distinct Rust / Vermilion Orange
-    "Neutral": "#7570b3",  # Deep Purple
-    "Highlight": "#1b9e77" # Teal Green
+    "Genuine": "#2b5c8f",
+    "Fake": "#d95f02",
+    "Neutral": "#7570b3",
+    "Highlight": "#1b9e77"
 }
 CLASS_COLORS = [PALETTE["Genuine"], PALETTE["Fake"]]
 
 print(f"Project Root: {PROJECT_ROOT}")
 print(f"Figures Output Directory: {FIGURES_DIR}")
 
-# %% [markdown]
-# ## 1. Load Dataset or Generate Synthetic Sample
-# 
-# We look for raw data in `data/raw/dataset.csv`. If no dataset is found, we automatically
-# generate a realistic synthetic dataset mirroring the YelpChi / Amazon review schemas.
-
-# %% Data Loading Cell
 def load_or_generate_dataset(data_dir: Path, num_synthetic_samples: int = 3500) -> pd.DataFrame:
     """
     Loads raw review data or generates a representative synthetic dataset.
@@ -121,7 +94,6 @@ def load_or_generate_dataset(data_dir: Path, num_synthetic_samples: int = 3500) 
         print(f"No raw dataset found at {raw_csv}. Generating {num_synthetic_samples} synthetic reviews...")
         df = generate_sample_dataset(output_dir=str(data_dir), num_reviews=num_synthetic_samples)
         
-    # Standardize column naming and types
     expected_cols = ['review_id', 'user_id', 'product_id', 'rating', 'text', 'label', 'date']
     for col in expected_cols:
         if col not in df.columns:
@@ -147,15 +119,6 @@ df_raw = load_or_generate_dataset(raw_data_dir)
 print(f"Dataset successfully loaded. Shape: {df_raw.shape}")
 df_raw.head()
 
-# %% [markdown]
-# ## 2. Basic Dataset Statistics and Text Properties
-# 
-# Compute summary statistics:
-# - Total review counts, unique reviewers, and unique products
-# - Class distribution (counts and percentages)
-# - Lexical metrics: character length, word count, uppercase ratio, punctuation count
-
-# %% Text Feature Extraction & Statistics
 def compute_text_statistics(df: pd.DataFrame) -> pd.DataFrame:
     """
     Enriches dataset with lexical and structural text characteristics.
@@ -180,7 +143,6 @@ def compute_text_statistics(df: pd.DataFrame) -> pd.DataFrame:
 
 df_stats = compute_text_statistics(df_raw)
 
-# Dataset High-Level Overview
 total_reviews = len(df_stats)
 num_users = df_stats['user_id'].nunique()
 num_products = df_stats['product_id'].nunique()
@@ -201,24 +163,16 @@ print(f"Fake Reviews (1):       {fake_count:,} ({fake_ratio:.2f}%)")
 print(f"Class Imbalance Ratio:  1 : {genuine_count / max(fake_count, 1):.2f}")
 print("=" * 60)
 
-# Statistical metrics grouped by class
 summary_cols = ['word_count', 'char_length', 'avg_word_length', 'uppercase_ratio', 'exclamation_count', 'rating']
 class_summary = df_stats.groupby('class_name')[summary_cols].agg(['mean', 'std', 'median', 'min', 'max'])
 display(class_summary) if 'display' in globals() else print(class_summary.to_string())
 
-# %% [markdown]
-# ## 3. Class Balance Visualization
-# 
-# A publication-ready bar chart illustrating class distribution with counts and percentages.
-
-# %% Class Balance Plot
 fig, ax = plt.subplots(figsize=(7, 5))
 
 counts = [genuine_count, fake_count]
 labels = ['Genuine (0)', 'Fake (1)']
 bars = ax.bar(labels, counts, color=CLASS_COLORS, width=0.55, edgecolor='black', linewidth=1.2, alpha=0.9)
 
-# Add data annotations on top of each bar
 for bar, count, pct in zip(bars, counts, [genuine_ratio, fake_ratio]):
     height = bar.get_height()
     ax.annotate(
@@ -236,23 +190,14 @@ ax.set_xlabel('Review Category')
 ax.set_ylim(0, max(counts) * 1.18)
 ax.grid(axis='y', linestyle='--', alpha=0.7)
 
-# Save figure
 class_dist_path = FIGURES_DIR / "eda_class_distribution.png"
 fig.savefig(class_dist_path, dpi=300)
 fig.savefig(FIGURES_DIR / "eda_class_distribution.pdf")
 print(f"Saved class balance figure to: {class_dist_path}")
 plt.show()
 
-# %% [markdown]
-# ## 4. Review Length and Structural Text Distributions
-# 
-# Compare word counts and character lengths between genuine and fake reviews.
-# Fake reviews are often noticeably shorter or less lexically varied.
-
-# %% Review Length Distribution Plot
 fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
 
-# Plot 1: Word Count Histogram & KDE
 sns.histplot(
     data=df_stats,
     x='word_count',
@@ -271,7 +216,6 @@ axes[0].set_xlabel('Word Count per Review')
 axes[0].set_ylabel('Density')
 axes[0].grid(True, linestyle='--', alpha=0.6)
 
-# Plot 2: Boxplot of Word Count with Log Scale Option
 sns.boxplot(
     data=df_stats,
     x='class_name',
@@ -296,15 +240,8 @@ fig.savefig(length_dist_path, dpi=300)
 print(f"Saved review length figure to: {length_dist_path}")
 plt.show()
 
-# %% [markdown]
-# ## 5. Rating Distribution and Polarization Analysis
-# 
-# Spammers frequently write polarized reviews (1-star to defame competitors or 5-star to promote products).
-
-# %% Rating Distribution Plot
 fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
 
-# Plot 1: Rating Counts by Class
 sns.countplot(
     data=df_stats,
     x='rating',
@@ -320,7 +257,6 @@ axes[0].set_ylabel('Count')
 axes[0].grid(axis='y', linestyle='--', alpha=0.6)
 axes[0].legend(title='Category')
 
-# Plot 2: Normalized Rating Proportion by Class
 rating_prop = (
     df_stats.groupby('class_name')['rating']
     .value_counts(normalize=True)
@@ -353,12 +289,6 @@ fig.savefig(rating_dist_path, dpi=300)
 print(f"Saved rating distribution figure to: {rating_dist_path}")
 plt.show()
 
-# %% [markdown]
-# ## 6. Word Clouds for Fake vs. Genuine Reviews
-# 
-# Lexical contrast visualization showing high-frequency tokens across both classes.
-
-# %% Word Cloud Generation Cell
 def generate_wordclouds(df: pd.DataFrame, save_path: Path):
     """
     Generates side-by-side word clouds for genuine and fake reviews.
@@ -410,7 +340,6 @@ def generate_wordclouds(df: pd.DataFrame, save_path: Path):
         fig.savefig(save_path, dpi=300)
         plt.show()
     else:
-        # Fallback: Top Term Frequencies
         fig, axes = plt.subplots(1, 2, figsize=(14, 6))
         
         for idx, (lbl, name, col, ax) in enumerate([
@@ -432,20 +361,12 @@ wordcloud_path = FIGURES_DIR / "eda_wordclouds.png"
 generate_wordclouds(df_stats, wordcloud_path)
 print(f"Saved word cloud / lexical chart to: {wordcloud_path}")
 
-# %% [markdown]
-# ## 7. Behavioral Feature Extraction & Top Features Comparison
-# 
-# Extract user-level and product-level behavioral features using `BehavioralFeatureExtractor`.
-# Compare feature means and compute standardized differences between classes.
-
-# %% Behavioral Features Extraction Cell
 print("Extracting behavioral features across users and products...")
 feature_extractor = BehavioralFeatureExtractor(df_raw)
 df_features = feature_extractor.extract_all_features()
 
 print(f"Feature extraction completed. Total columns: {df_features.shape[1]}")
 
-# Identify numeric behavioral feature columns
 id_cols = {'review_id', 'user_id', 'product_id', 'label', 'text', 'cleaned_text', 'date', 'class_name'}
 behavioral_cols = [
     col for col in df_features.columns
@@ -456,8 +377,6 @@ print("Extracted Behavioral Features:")
 for i, col in enumerate(behavioral_cols, 1):
     print(f"  {i:2d}. {col}")
 
-# %% Top Feature Discrepancies Bar Plot
-# Calculate standardized mean difference (Cohen's d-style score) between Fake and Genuine
 feature_diffs = []
 for col in behavioral_cols:
     gen_vals = df_features[df_features['label'] == 0][col].dropna()
@@ -478,7 +397,6 @@ for col in behavioral_cols:
 
 df_diffs = pd.DataFrame(feature_diffs).sort_values(by='abs_diff', ascending=True)
 
-# Plot horizontal bar chart of top discriminating features
 fig, ax = plt.subplots(figsize=(9, max(5, len(behavioral_cols) * 0.45)))
 bar_colors = [PALETTE['Fake'] if val > 0 else PALETTE['Genuine'] for val in df_diffs['standardized_diff']]
 
@@ -497,7 +415,6 @@ ax.set_xlabel('Standardized Difference (Cohen\'s d)')
 ax.set_ylabel('Behavioral Feature')
 ax.grid(axis='x', linestyle='--', alpha=0.6)
 
-# Legend annotations
 from matplotlib.patches import Patch
 legend_elements = [
     Patch(facecolor=PALETTE['Fake'], edgecolor='black', label='Elevated in Fake Reviews'),
@@ -511,16 +428,8 @@ fig.savefig(top_features_path, dpi=300)
 print(f"Saved top features comparison figure to: {top_features_path}")
 plt.show()
 
-# %% [markdown]
-# ## 8. Behavioral Features Correlation Heatmap
-# 
-# Correlation analysis among user and product behavioral indicators.
-# Helps uncover collinear features before feeding them into deep neural encoders.
-
-# %% Correlation Matrix Heatmap
 corr_matrix = df_features[behavioral_cols].corr()
 
-# Mask the upper triangle for clean academic visualization
 mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
 
 fig, ax = plt.subplots(figsize=(10, 8))
@@ -550,15 +459,6 @@ fig.savefig(FIGURES_DIR / "eda_behavioral_correlation_heatmap.pdf")
 print(f"Saved correlation heatmap to: {heatmap_path}")
 plt.show()
 
-# %% [markdown]
-# ## 9. Summary and Export Processed Dataset
-# 
-# Key Findings:
-# - Review lengths and rating polarization provide strong preliminary signals.
-# - Behavioral features (singleton reviewers, rating deviation, product extreme ratios) distinguish coordinated spammers.
-# - Cleaned dataset with extracted features is exported to `data/processed/` for downstream baseline models.
-
-# %% Export Data Cell
 output_processed_csv = PROCESSED_DIR / "dataset_with_features.csv"
 df_features.to_csv(output_processed_csv, index=False)
 print(f"Successfully exported feature-enriched dataset to: {output_processed_csv}")

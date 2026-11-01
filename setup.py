@@ -8,7 +8,6 @@ for fake review detection across e-commerce and review platforms.
 from pathlib import Path
 from setuptools import find_packages, setup
 
-# Read the long description from README.md
 readme_path = Path(__file__).parent / "README.md"
 long_description = ""
 if readme_path.exists():

@@ -19,13 +19,13 @@ env/
 *.swp
 *.swo
 
-# Data (large files)
+# Local datasets and derived feature tables (download locally; do not publish raw review text)
 data/raw/
 data/processed/
-*.csv
-*.json
-*.pkl
-*.h5
+data/datasets/*.csv
+
+# Keep compact experiment metrics and metadata, but omit row-level split manifests.
+results/**/*split_manifest.csv
 
 # Model checkpoints (large files)
 results/checkpoints/

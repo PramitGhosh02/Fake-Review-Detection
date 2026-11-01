@@ -28,13 +28,11 @@ class FakeGuard(nn.Module):
         """
         super(FakeGuard, self).__init__()
         
-        # Extract configurations
         text_cfg = config.get('text', {})
         behav_cfg = config.get('behavior', {})
         graph_cfg = config.get('graph', {})
         fusion_cfg = config.get('fusion', {})
         
-        # Initialize all sub-modules
         self.text_encoder = TextEncoder(
             model_name=text_cfg.get('model_name', 'bert-base-uncased'),
             hidden_dim=text_cfg.get('hidden_dim', 768),
@@ -88,14 +86,10 @@ class FakeGuard(nn.Module):
         """
         batch_size = input_ids.size(0)
         
-        # 1. Semantic View (Text)
         text_emb = self.text_encoder(input_ids, attention_mask)
         
-        # 2. Behavioral View
         behav_emb = self.behavior_encoder(behavioral_features)
         
-        # 3. Relational View (Graph)
-        # Graceful fallback: if graph data is missing, use zero embeddings
         graph_dim = self.fusion.graph_proj.in_features
         if node_features is not None and edge_index is not None and node_indices is not None:
             full_graph_emb = self.graph_encoder(node_features, edge_index)
@@ -106,7 +100,6 @@ class FakeGuard(nn.Module):
         else:
             graph_emb = torch.zeros((batch_size, graph_dim), device=input_ids.device)
             
-        # 4. Cross-Attention Fusion
         logits, attn_weights = self.fusion(text_emb, behav_emb, graph_emb)
         self.last_attention_weights = attn_weights
         
