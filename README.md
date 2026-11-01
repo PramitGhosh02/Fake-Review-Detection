@@ -221,12 +221,4 @@ The project intends to report standard fraud detection metrics after the evaluat
 
 ---
 
-##  Citation
 
-There is no published FakeGuard paper citation. Cite the original data and methods you use, and clearly describe dataset-specific label meanings and splits.
-
----
-
-##  License
-
-No `LICENSE` file is present in this repository, so the project's redistribution terms are not specified here.
