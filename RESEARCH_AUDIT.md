@@ -75,3 +75,13 @@ Replace random/hard-coded plots with explanations from a saved model and example
 - Gambetti, A. & Han, Q. (2024). *AiGen-FoodReview: A Multimodal Dataset of Machine-Generated Restaurant Reviews and Images on Social Media*. ICWSM 18(1), pp. 1935–1945. DOI: `10.1609/icwsm.v18i1.31437`.
 - Jain, S. & Wallace, B. C. (2019). *Attention is not Explanation*. NAACL-HLT, pp. 3543–3556. DOI: `10.18653/v1/N19-1357`.
 
+## Collaborator implementation added (1 November 2026)
+
+Selected code and reports from Vinay Rautulwar's public repository, [`fake-review-detection`](https://github.com/Vinay-rautulwar/fake-review-detection), were integrated from commit `92c10b3` into `backend/`, `frontend/`, `training/`, and `reports/`. The additions include a 17-column data validation and cleaning pipeline, reviewer/near-duplicate constrained split code, a TF-IDF + LightGBM baseline, a DeBERTa-v3 text-only training notebook, and an API/dashboard prototype. These are separate from the local Ott benchmark and do not implement or validate FakeGuard's text + behavior + graph fusion.
+
+The collaborator reports a 30,000-row template-generated dataset, 29,821 rows after excluding 179 invalid records, and a 70/15/15 reviewer-held-out split with near-duplicate clusters kept within splits. The split report also notes that product-level aggregates overlap across partitions and may contain future-data information. No dataset or split CSVs were included in the source repository, so those counts and split diagnostics are preserved as collaborator reports rather than independently reproduced findings.
+
+The collaborator's DeBERTa test report claims accuracy 0.7143, fake-class precision 0.8674, recall 0.2809, F1 0.4243, ROC-AUC 0.7152, and average precision 0.6639 on 4,474 examples. The report names `model.safetensors` and `data/splits/test.csv`, but neither file is present in the fetched repository tree; only model configuration/tokenizer metadata and reported metrics are present. The scores therefore remain **unverified here** and must not be presented as results reproduced by this project. The companion baseline report is explicitly validation-set evidence, so its figures also must not be compared as a same-split test baseline.
+
+The backend's model loader checks for actual weights and returns an unavailable status when they are missing. A frontend and prediction API are now present as a software prototype, but the repository does not contain a deployable trained model, and the API/UI addition is not evidence of a validated or production-ready detector.
+

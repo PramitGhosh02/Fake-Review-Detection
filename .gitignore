@@ -18,11 +18,17 @@ env/
 .idea/
 *.swp
 *.swo
+.env
+!.env.example
 
 # Local datasets and derived feature tables (download locally; do not publish raw review text)
 data/raw/
 data/processed/
 data/datasets/*.csv
+data/final/*.csv
+data/quarantine/*.csv
+data/splits/*.csv
+reports/cleaning_log.csv
 
 # Keep compact experiment metrics and metadata, but omit row-level split manifests.
 results/**/*split_manifest.csv
@@ -32,6 +38,10 @@ results/checkpoints/
 *.pt
 *.pth
 *.bin
+*.safetensors
+*.joblib
+training/artifacts/*
+!training/artifacts/.gitkeep
 
 # Logs
 results/logs/

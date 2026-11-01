@@ -26,6 +26,14 @@ The proposed design fuses these views with multi-head self-attention over a thre
 - The evaluation and figure scripts include random or hard-coded values. Do not use their outputs as experimental results.
 - See [the research audit](RESEARCH_AUDIT.md) for verified findings, sources, and the next experiment plan.
 
+### Integrated collaborator prototype
+
+The repository also includes selected implementation files from Vinay Rautulwar's [companion repository](https://github.com/Vinay-rautulwar/fake-review-detection), fetched from commit `92c10b3`. These add a 17-column dataset cleaning/validation/splitting pipeline, TF-IDF + LightGBM training, a DeBERTa text-only training notebook, and a FastAPI/MongoDB backend with a small web interface. The behavioral-fusion model remains planned; the integrated API is a prototype.
+
+This pipeline targets a separate, template-generated 30,000-row dataset, not the Ott deceptive-opinion corpus used for the main results above. The source dataset, split CSVs, and model weights are not included. The companion test report claims DeBERTa accuracy 0.7143, fake-class precision 0.8674, recall 0.2809, F1 0.4243, ROC-AUC 0.7152, and average precision 0.6639; those figures are collaborator-reported and cannot be reproduced from the repository snapshot because the test split and `model.safetensors` are absent. Treat them as preliminary, and do not compare them directly with the Ott results.
+
+The API reports its model as unavailable until the required local model artifacts are supplied. See `backend/README.md`, `training/README.md`, `data/README.md`, and `reports/README.md` for setup, dataset limitations, and provenance.
+
 ---
 
 ##  Architecture Overview
@@ -83,6 +91,8 @@ The proposed design fuses these views with multi-head self-attention over a thre
 
 ```
 PBL_Sem5/
+├── backend/                      # Optional FastAPI/MongoDB prediction prototype
+├── frontend/                     # Companion dashboard prototype
 ├── configs/
 │   └── config.yaml               # Master experimental configuration
 ├── data/
@@ -94,6 +104,7 @@ PBL_Sem5/
 │   ├── checkpoints/              # Optional training output; no validated checkpoint is included
 │   ├── logs/                     # Optional training output
 │   └── figures/                  # Development plots; verify provenance before use
+├── reports/                      # Dataset audit and companion benchmark reports
 ├── src/
 │   ├── __init__.py
 │   ├── data/                     # Data loading, tokenization, graph builders
@@ -108,6 +119,7 @@ PBL_Sem5/
 │       ├── __init__.py
 │       └── helpers.py
 ├── tests/                        # Automated unit and integration tests
+├── training/                     # Data quality, split, baseline and DeBERTa tools
 ├── .gitignore
 ├── requirements.txt              # Environment dependencies
 ├── setup.py                      # Package installation script
